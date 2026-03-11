@@ -5,7 +5,7 @@ widoki, funkcje, procedury, triggery
 
 ---
 
-Imiona i nazwiska autorów :
+Imiona i nazwiska autorów : Hubert Myszka, Michał Nowak
 
 ---
 
@@ -29,7 +29,7 @@ Imiona i nazwiska autorów :
 
 # Tabele
 
-![](_img/ora-trip1-0.png)
+![](src/ora-trip1-0.png)
 
 - `Trip` - wycieczki
   - `trip_id` - identyfikator, klucz główny
@@ -284,9 +284,11 @@ values ('Zbigniew', 'Kąkol');
 COMMIT;
 
 -- Po uruchomieniu tej transakcji wyskoczył błąd:
+```
 
 ![error](src/error.png)
 
+```sql
 -- Od razu widać, że problem jest w tym, że chciałem nadać transakcji uprawnienia READ ONLY, a powinna być ona READ WRITE, dlatego szybko to poprawiamy i lecimy dalej.
 
 SET TRANSACTION READ WRITE NAME 'insert_zbigniew_kakol';
