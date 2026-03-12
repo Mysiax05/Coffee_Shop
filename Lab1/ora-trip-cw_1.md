@@ -423,7 +423,35 @@ Proponowany zestaw funkcji można rozbudować wedle uznania/potrzeb
 
 ```sql
 
--- wyniki, kod, zrzuty ekranów, komentarz ...
+
+-- f_available_trips_to
+
+create or replace type available_trip as OBJECT
+(
+trip_id int,
+trip_name varchar(100),
+trip_date date,
+remaining_places int
+);
+
+create or replace type available_trip_table is table of available_trip;
+
+create or replace function f_available_trips_to(destination_country varchar, date_from date, date_to date)
+    return available_trip_table
+as
+    result available_trip_table:= available_trip_table();
+begin
+    select available_trip(tr.trip_id,tr.trip_name,tr.trip_date,tr.remaining_places)
+    bulk collect
+    into result
+    from vw_trip tr
+    where tr.country=destination_country and tr.trip_date between date_from and date_to;
+    return result;
+end;
+
+--testy
+
+--select trip_id,trip_name,trip_date,remaining_places from table(f_available_trips_to ('Poland','1980-01-01','2025-12-12'));
 
 ```
 
@@ -466,7 +494,36 @@ Proponowany zestaw procedur można rozbudować wedle uznania/potrzeb
 
 ```sql
 
--- wyniki, kod, zrzuty ekranów, komentarz ...
+--pomocnicze
+create or replace procedure p_person_exist(p_id in person.person_id%type)
+as
+    tmp char(1);
+begin
+    select 1 into tmp from person p where p.person_id = p_id;
+exception
+    when NO_DATA_FOUND then
+        raise_application_error(-20001, 'person not found !!!');
+end;
+
+create or replace procedure p_trip_exist(t_id in trip.trip_id%type)
+as
+    tmp char(1);
+begin
+    select 1 into tmp from trip t where t.trip_id = t_id;
+exception
+    when NO_DATA_FOUND then
+        raise_application_error(-20002, 'trip not found !!!');
+end;
+
+create or replace procedure p_reservation_exist(r_id in reservation.reservation_id%type)
+as
+    tmp char(1);
+begin
+    select 1 into tmp from reservation r where r.reservation_id = r_id;
+exception
+    when NO_DATA_FOUND then
+        raise_application_error(-20003, 'reservation not found !!!');
+end;
 
 ```
 
