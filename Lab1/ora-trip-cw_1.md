@@ -491,11 +491,11 @@ exception
         raise_application_error(-20001, 'person not found !!!');
 end;
 
-create or replace procedure p_trip_exist(t_id in trip.trip_id%type)
+create or replace procedure p_av_trip_exist(t_id in trip.trip_id%type)
 as
     tmp char(1);
 begin
-    select 1 into tmp from trip t where t.trip_id = t_id;
+    select 1 into tmp from vw_available_trip t where t.trip_id = t_id;
 exception
     when NO_DATA_FOUND then
         raise_application_error(-20002, 'trip not found !!!');
@@ -509,6 +509,73 @@ begin
 exception
     when NO_DATA_FOUND then
         raise_application_error(-20003, 'reservation not found !!!');
+end;
+
+create or replace procedure p_add_reservation(vtrip_id int, vperson_id int)
+as
+    vlog_date            date;
+    existing_reservation int;
+    vreservation_id      INT;
+begin
+    p_person_exist(vperson_id);
+    p_av_trip_exist(vtrip_id);
+
+    SELECT COUNT(*)
+    INTO existing_reservation
+    FROM reservation r
+    WHERE r.trip_id = vtrip_id
+      AND r.person_id = vperson_id
+      AND r.status IN ('N', 'P');
+
+    IF existing_reservation > 0 THEN
+        RAISE_APPLICATION_ERROR(-20004, 'reservation already exists');
+    END IF;
+
+    insert into reservation(trip_id, person_id, status)
+    values (vtrip_id, vperson_id, 'N')
+    returning reservation_id into vreservation_id;
+
+
+    vlog_date := trunc(sysdate);
+    insert into log(reservation_id, log_date, status)
+    values (vreservation_id, vlog_date, 'N');
+end;
+
+
+create or replace procedure p_modify_reservation_status(vreservation_id int, vstatus char)
+as
+    vold_status reservation.status%TYPE;
+    vtrip_id    reservation.trip_id%TYPE;
+    vexists     int;
+begin
+    p_reservation_exist(vreservation_id);
+    IF vstatus NOT IN ('N', 'P', 'C') THEN
+        RAISE_APPLICATION_ERROR(-20005, 'Invalid reservation status');
+    END IF;
+
+    SELECT STATUS, TRIP_ID
+    into vold_status, vtrip_id
+    FROM RESERVATION
+    WHERE RESERVATION_ID = vreservation_id;
+
+
+    IF vold_status = 'C' AND (vstatus = 'P' OR vstatus = 'N') THEN
+        SELECT COUNT(*)
+        INTO vexists
+        FROM trip v
+        WHERE v.trip_id = vtrip_id;
+
+        IF vexists = 0 THEN
+            RAISE_APPLICATION_ERROR(-20006, 'No free places available for this trip');
+        END IF;
+    END IF;
+
+    UPDATE reservation
+    SET status = vstatus
+    WHERE reservation_id = vreservation_id;
+
+    INSERT INTO log(reservation_id, log_date, status)
+    VALUES (vreservation_id, TRUNC(SYSDATE), vstatus);
 end;
 
 ```
@@ -539,7 +606,86 @@ Należy przygotować procedury: `p_add_reservation_4`, `p_modify_reservation_sta
 
 ```sql
 
--- wyniki, kod, zrzuty ekranów, komentarz ...
+create or replace trigger t_add_reservation
+    after insert
+    on reservation
+    for each row
+begin
+    INSERT INTO log(reservation_id, log_date, status)
+    VALUES (:NEW.reservation_id, TRUNC(SYSDATE), :NEW.status);
+end;
+/
+
+create or replace trigger t_changed_reservation_status
+    after update of status
+    on reservation
+    for each row
+begin
+    if :old.status != :new.status then
+        INSERT INTO log(reservation_id, log_date, status)
+        VALUES (:NEW.reservation_id, TRUNC(SYSDATE), :NEW.status);
+    end if;
+end;
+/
+
+create or replace procedure p_add_reservation_4(vtrip_id int, vperson_id int)
+as
+    existing_reservation int;
+    vreservation_id      INT;
+begin
+    p_person_exist(vperson_id);
+    p_trip_exist(vtrip_id);
+
+    SELECT COUNT(*)
+    INTO existing_reservation
+    FROM reservation r
+    WHERE r.trip_id = vtrip_id
+      AND r.person_id = vperson_id
+      AND r.status IN ('N', 'P');
+
+    IF existing_reservation > 0 THEN
+        RAISE_APPLICATION_ERROR(-20004, 'reservation already exists');
+    END IF;
+
+    insert into reservation(trip_id, person_id, status)
+    values (vtrip_id, vperson_id, 'N')
+    returning reservation_id into vreservation_id;
+end;
+
+create or replace procedure p_modify_reservation_status_4(vreservation_id int, vstatus char)
+as
+    vold_status reservation.status%TYPE;
+    vtrip_id    reservation.trip_id%TYPE;
+    vexists     int;
+begin
+    p_reservation_exist(vreservation_id);
+    IF vstatus NOT IN ('N', 'P', 'C') THEN
+        RAISE_APPLICATION_ERROR(-20005, 'Invalid reservation status');
+    END IF;
+
+    SELECT STATUS, TRIP_ID
+    into vold_status, vtrip_id
+    FROM RESERVATION
+    WHERE RESERVATION_ID = vreservation_id;
+
+
+    IF vold_status = 'C' AND (vstatus = 'P' OR vstatus = 'N') THEN
+        SELECT COUNT(*)
+        INTO vexists
+        FROM trip v
+        WHERE v.trip_id = vtrip_id;
+
+        IF vexists = 0 THEN
+            RAISE_APPLICATION_ERROR(-20006, 'No free places available for this trip');
+        END IF;
+    END IF;
+
+    UPDATE reservation
+    SET status = vstatus
+    WHERE reservation_id = vreservation_id;
+end;
+
+
 
 ```
 
