@@ -9,24 +9,6 @@ Imiona i nazwiska autorów : Hubert Myszka, Michał Nowak
 
 ---
 
-<style>
-  {
-    font-size: 16pt;
-  }
-</style>
-
-<style scoped>
- li, p {
-    font-size: 14pt;
-  }
-</style>
-
-<style scoped>
- pre {
-    font-size: 10pt;
-  }
-</style>
-
 # Tabele
 
 ![](src/ora-trip1-0.png)
@@ -384,7 +366,11 @@ FROM RESERVATION
 WHERE TRIP_ID=T.TRIP_ID AND STATUS = 'P') as REMAINING_PLACES
 FROM TRIP T
 
-
+--vw_available_trip
+CREATE OR REPLACE VIEW vw_available
+AS
+SELECT * FROM vw_trip
+WHERE REMAINING_PLACES > 0
 
 ```
 
