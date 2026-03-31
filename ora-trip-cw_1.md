@@ -882,7 +882,40 @@ Należy przygotować procedury: `p_add_reservation_5`, `p_modify_reservation_sta
 
 ```sql
 
--- wyniki, kod, zrzuty ekranów, komentarz ...
+-- t_check_max_places
+
+create or replace trigger t_check_max_places
+    before update of max_no_places on trip
+    for each row
+declare
+    v_reserved_places int;
+begin
+    SELECT COUNT(*)
+    INTO v_reserved_places
+    FROM reservation
+    WHERE trip_id := NEW.trip_id AND status IN ('P', 'N');
+
+    if :NEW.max_no_places < v_reserved_places
+        then RAISE_APPLICATION_ERROR(-20001, 'Nie mozna zmniejszyc liczby miejsc!');
+    end if;
+end;
+
+
+-- p_modify_max_no_places5
+
+create or replace procedure p_modify_max_no_places5
+(
+    p_trip_id in trip.trip_id%type.
+    p_max_no_places in trip.max_no_places%type
+)
+as
+begin
+    p_trip_exist(p_trip_id)
+
+    UPDATE trip
+    SET max_no_places = p_max_no_places
+    WHERE trip_id = p_trip_id
+end;
 
 ```
 
