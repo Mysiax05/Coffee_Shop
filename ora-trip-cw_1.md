@@ -558,6 +558,20 @@ exception
         raise_application_error(-20001, 'person not found !!!');
 end;
 
+-- p_trip_exist
+create or replace procedure p_trip_exist(t_id in trip.trip_id%type)
+as
+    tmp char(1);
+begin
+    SELECT 1
+    INTO tmp
+    FROM trip t
+    WHERE t.trip_id = t_id;
+EXCEPTION
+    WHEN NO_DATA_FOUND
+    THEN RAISE_APPLICATION_ERROR(-20002, 'Nie istnieje wycieczka o podanym ID');
+end;
+
 
 -- p_av_trip_exist
 
@@ -669,6 +683,8 @@ create or replace procedure p_modify_max_no_places
 as
     v_reserved_places int;
 begin
+    p_trip_exist(p_trip_id);
+
     SELECT COUNT(*)
     INTO v_reserved_places
     FROM reservation
