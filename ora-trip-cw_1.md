@@ -544,7 +544,10 @@ Proponowany zestaw procedur można rozbudować wedle uznania/potrzeb
 
 ```sql
 
---pomocnicze
+-- pomocnicze
+
+-- p_person_exist
+
 create or replace procedure p_person_exist(p_id in person.person_id%type)
 as
     tmp char(1);
@@ -554,6 +557,9 @@ exception
     when NO_DATA_FOUND then
         raise_application_error(-20001, 'person not found !!!');
 end;
+
+
+-- p_av_trip_exist
 
 create or replace procedure p_av_trip_exist(t_id in trip.trip_id%type)
 as
@@ -565,6 +571,9 @@ exception
         raise_application_error(-20002, 'trip not found !!!');
 end;
 
+
+-- p_reservation_exist
+
 create or replace procedure p_reservation_exist(r_id in reservation.reservation_id%type)
 as
     tmp char(1);
@@ -574,6 +583,11 @@ exception
     when NO_DATA_FOUND then
         raise_application_error(-20003, 'reservation not found !!!');
 end;
+
+
+----------------------------------
+
+-- p_add_reservation
 
 create or replace procedure p_add_reservation(vtrip_id int, vperson_id int)
 as
@@ -605,6 +619,8 @@ begin
     values (vreservation_id, vlog_date, 'N');
 end;
 
+
+--p_modify_reservation_status
 
 create or replace procedure p_modify_reservation_status(vreservation_id int, vstatus char)
 as
@@ -640,6 +656,31 @@ begin
 
     INSERT INTO log(reservation_id, log_date, status)
     VALUES (vreservation_id, TRUNC(SYSDATE), vstatus);
+end;
+
+
+-- p_modify_max_no_places
+
+create or replace procedure p_modify_max_no_places
+(
+    p_trip_id in trip.trip_id%type,
+    p_max_no_places in trip.max_no_places%type
+)
+as
+    v_reserved_places int;
+begin
+    SELECT COUNT(*)
+    INTO v_reserved_places
+    FROM reservation
+    WHERE trip_id = p_trip_id AND status = 'P';
+
+    if p_max_no_places < v_reserved_places
+    then RAISE_APPLICATION_ERROR(-20004, 'Nie mozna zmniejszyc liczby miejsc!');
+    end if;
+
+    UPDATE trip
+    SET max_no_places = p_max_no_places
+    WHERE trip_id = p_trip_id;
 end;
 
 ```
