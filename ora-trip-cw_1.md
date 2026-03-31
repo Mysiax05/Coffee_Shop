@@ -223,7 +223,7 @@ insert into PERSON (FIRSTNAME, LASTNAME)
 values ('Marcin', 'Kuta');
 
 insert into PERSON (FIRSTNAME, LASTNAME)
-values ('Student', 'Debil');
+values ('Student', 'Informatyk');
 
 COMMIT;
 
@@ -236,7 +236,7 @@ ROLLBACK;
 
 -- Wynik:
 -- 11,Marcin,Kuta
--- 12,Student,Debil
+-- 12,Student,Informatyk
 
 -------------
 
@@ -245,12 +245,12 @@ SET TRANSACTION READ WRITE NAME 'delete_student'
 
 delete from PERSON
 where FIRSTNAME = 'Student'
-and LASTNAME = 'Debil';
+and LASTNAME = 'Informatyk';
 
 COMMIT;
 
 -- Efektem jest pozbycie się wiersza:
--- 12,Student,Debil
+-- 12,Student,Informatyk
 
 -------------
 
@@ -378,7 +378,7 @@ Procedury:
 - `f_trip_participants`
   - zadaniem funkcji jest zwrócenie listy uczestników wskazanej wycieczki
   - parametry funkcji: `trip_id`
-  - funkcja zwraca podobny zestaw danych jak widok `vw_eservation`
+  - funkcja zwraca podobny zestaw danych jak widok `vw_reservation`
 - `f_person_reservations`
   - zadaniem funkcji jest zwrócenie listy rezerwacji danej osoby
   - parametry funkcji: `person_id`
@@ -401,6 +401,77 @@ Proponowany zestaw funkcji można rozbudować wedle uznania/potrzeb
 # Zadanie 2 - rozwiązanie
 
 ```sql
+
+-- f_trip_participants
+create or replace type trip_participant as OBJECT
+(
+    person_id int,
+    firstname varchar(50),
+    lastname varchar(50)
+);
+
+create or replace type trip_participants_table is table of trip_participant;
+
+create or replace function f_trip_participants(trip_id int)
+    return  trip_participants_table
+as
+    result trip_participants_table;
+    trip_exists int;
+begin
+    SELECT COUNT(*)
+    INTO trip_exists
+    FROM trip t
+    WHERE t.trip_id = f_trip_participants.trip_id;
+
+    if trip_exists = 0
+    then RAISE_APPLICATION_ERROR(-20001, 'Nie istnieje wycieczka o takim indeksie');
+    end if;
+
+    SELECT trip_participant(v.person_id, v.firstname, v.lastname)
+    bulk collect
+    INTO result
+    FROM vw_reservation v
+    WHERE v.trip_id = f_trip_participants.trip_id;
+
+    return result;
+end;
+
+
+-- f_person_reservations
+
+create or replace type person_reservation as OBJECT
+(
+    reservation_id int,
+    trip_id        int,
+    person_id      int,
+    status         char(1)
+);
+
+create or replace type person_reservations_table is table of person_reservation;
+
+create or replace function f_person_reservations(person_id int)
+    return person_reservations_table
+as
+    result person_reservations_table;
+    person_exists int;
+begin
+    SELECT COUNT(*)
+    INTO person_exists
+    FROM person p
+    WHERE p.person_id = f_person_reservations.person_id;
+
+    if person_exists = 0
+    then RAISE_APPLICATION_ERROR(-20002, 'Nie istnieje osoba o takim indeksie');
+    end if;
+
+    SELECT person_reservation(v.reservation_id, v.trip_id, v.person_id, v.status)
+    bulk collect
+    into result
+    FROM vw_reservation v
+    WHERE v.person_id = f_person_reservations.person_id;
+
+    return result;
+end;
 
 
 -- f_available_trips_to
