@@ -216,7 +216,6 @@ https://upel.agh.edu.pl/mod/folder/view.php?id=411834
 w szczególności dokumenty: `10_modyf_ora_north.pdf`, `20_ora_plsql_north.pdf`
 
 ```sql
--- Dodajemy nowego prowadzącego i jakiegoś studenta, oraz dzięki poleceniu COMMIT zapisujemy fizycznie do bazy danych nasze nowe osoby, chciałem dodać jeszcze kolejną osobę, ale mój kolega stwierdził, że to zły pomysł i kazał mi to poprawić więc użyłem ROLLBACK, aby cofnąć wykonaną transakcję insert. ROLLBACK cofa działanie wszystkich transakcji do momentu ostatniego COMMIT.
 
 SET TRANSACTION READ WRITE NAME 'add_people';
 
@@ -241,7 +240,6 @@ ROLLBACK;
 
 -------------
 
--- Jako, że w naszej bazie danych znajdują się sami prowadzący zajęcia, to pozbywamy się naszego studenta dzięki "delete" i zatwierdzamy
 
 SET TRANSACTION READ WRITE NAME 'delete_student'
 
@@ -256,7 +254,6 @@ COMMIT;
 
 -------------
 
--- Dodajemy w takim razie nowego prowadzącego i zatwierdzamy
 
 SET TRANSACTION READ ONLY NAME 'insert_zbigniew_kakol';
 
@@ -271,7 +268,6 @@ COMMIT;
 ![error](src/error.png)
 
 ```sql
--- Od razu widać, że problem jest w tym, że chciałem nadać transakcji uprawnienia READ ONLY, a powinna być ona READ WRITE, dlatego szybko to poprawiamy i lecimy dalej.
 
 SET TRANSACTION READ WRITE NAME 'insert_zbigniew_kakol';
 
@@ -285,11 +281,10 @@ COMMIT;
 
 -------------
 
--- Widać, że teraz "zepsuła" nam się inkrementacja PERSON_ID, więc chcemy to naprawić. Jako, że Marcin Kuta ma ID = 11, to Zbigniew Kąkol pownien mieć ID = 12 (chcemy to zrobić w bezpieczny sposób więc użyjemy bloku begin, ... end; i sprawdzimy poprawność akcji dzięki dbms_output), jeśli będziemy chcieli dodać nowego prowadzącego to kolejne ID powinno wynosić 13. Naprawiamy to w ten sposób:
 
 SET TRANSACTION READ WRITE NAME 'fix_person_id_&_update_person_id_sequence'
 
-set serveroutput on  -- aby zadziałał dbms_output, ale datagrip jest na tyle upierdliwy, że trzeba było to jeszcze zmienić w ustawieniach konsoli
+set serveroutput on
 
 begin
     update PERSON
@@ -303,14 +298,12 @@ end;
 -- Wynik:
 -- 12,Zbigniew,Kąkol
 
--- Naprawiliśmy już ID Zbigniewa Kąkola więc teraz czas naprawić sekwencję, robimy to poprzez:
 
 alter sequence S_PERSON_SEQ
 restart start with 13;
 
 COMMIT;
 
--- Dodajemy więc nowego prowadzącego, aby sprawdzić, czy rzeczywiście wszystko działa:
 
 SET TRANSACTION READ WRITE NAME 'add_leszek_kotulski'
 
