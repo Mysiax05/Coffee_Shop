@@ -688,7 +688,7 @@ begin
     SELECT COUNT(*)
     INTO v_reserved_places
     FROM reservation
-    WHERE trip_id = p_trip_id AND status = 'P';
+    WHERE trip_id = p_trip_id AND status IN ('P', 'N');
 
     if p_max_no_places < v_reserved_places
     then RAISE_APPLICATION_ERROR(-20004, 'Nie mozna zmniejszyc liczby miejsc!');
@@ -727,6 +727,8 @@ Należy przygotować procedury: `p_add_reservation_4`, `p_modify_reservation_sta
 
 ```sql
 
+-- t_add_reservation
+
 create or replace trigger t_add_reservation
     after insert
     on reservation
@@ -735,7 +737,9 @@ begin
     INSERT INTO log(reservation_id, log_date, status)
     VALUES (:NEW.reservation_id, TRUNC(SYSDATE), :NEW.status);
 end;
-/
+
+
+-- t_changed_reservation_status
 
 create or replace trigger t_changed_reservation_status
     after update of status
@@ -747,7 +751,22 @@ begin
         VALUES (:NEW.reservation_id, TRUNC(SYSDATE), :NEW.status);
     end if;
 end;
-/
+
+
+-- t_prevent_reservation_delete
+
+create or replace trigger t_prevent_reservation_delete
+    before delete
+    on reservation
+    for each row
+begin
+    RAISE_APPLICATION_ERROR(-20003, 'Usuwanie rezerwacji jest zabronione');
+end;
+
+
+----------------------
+
+-- p_add_reservation_4
 
 create or replace procedure p_add_reservation_4(vtrip_id int, vperson_id int)
 as
@@ -755,7 +774,7 @@ as
     vreservation_id      INT;
 begin
     p_person_exist(vperson_id);
-    p_trip_exist(vtrip_id);
+    p_av_trip_exist(vtrip_id);
 
     SELECT COUNT(*)
     INTO existing_reservation
@@ -772,6 +791,9 @@ begin
     values (vtrip_id, vperson_id, 'N')
     returning reservation_id into vreservation_id;
 end;
+
+
+-- p_modify_reservation_status4
 
 create or replace procedure p_modify_reservation_status_4(vreservation_id int, vstatus char)
 as
@@ -807,6 +829,31 @@ begin
 end;
 
 
+-- p_modify_max_no_places4
+
+create or replace procedure p_modify_max_no_places4
+(
+    p_trip_id in trip.trip_id%type,
+    p_max_no_places in trip.max_no_places%type
+)
+as
+    v_reserved_places int;
+begin
+    p_trip_exist(p_trip_id);
+
+    SELECT COUNT(*)
+    INTO v_reserved_places
+    FROM reservation
+    WHERE trip_id = p_trip_id AND status IN ('P', 'N');
+
+    if p_max_no_places < v_reserved_places
+    then RAISE_APPLICATION_ERROR(-20004, 'Nie mozna zmniejszyc liczby miejsc!');
+    end if;
+
+    UPDATE trip
+    SET max_no_places = p_max_no_places
+    WHERE trip_id = p_trip_id;
+end;
 
 ```
 
