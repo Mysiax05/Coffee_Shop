@@ -424,7 +424,7 @@ begin
     WHERE t.trip_id = f_trip_participants.trip_id;
 
     if trip_exists = 0
-    then RAISE_APPLICATION_ERROR(-20001, 'Nie istnieje wycieczka o takim indeksie');
+    then RAISE_APPLICATION_ERROR(-20001, 'There is no trip with this ID!');
     end if;
 
     SELECT trip_participant(v.person_id, v.firstname, v.lastname)
@@ -461,7 +461,7 @@ begin
     WHERE p.person_id = f_person_reservations.person_id;
 
     if person_exists = 0
-    then RAISE_APPLICATION_ERROR(-20002, 'Nie istnieje osoba o takim indeksie');
+    then RAISE_APPLICATION_ERROR(-20002, 'There is no person with this ID!');
     end if;
 
     SELECT person_reservation(v.reservation_id, v.trip_id, v.person_id, v.status)
@@ -555,7 +555,7 @@ begin
     select 1 into tmp from person p where p.person_id = p_id;
 exception
     when NO_DATA_FOUND then
-        raise_application_error(-20001, 'person not found !!!');
+        raise_application_error(-20001, 'There is no person with this ID!');
 end;
 
 -- p_trip_exist
@@ -569,7 +569,7 @@ begin
     WHERE t.trip_id = t_id;
 EXCEPTION
     WHEN NO_DATA_FOUND
-    THEN RAISE_APPLICATION_ERROR(-20002, 'Nie istnieje wycieczka o podanym ID');
+    THEN RAISE_APPLICATION_ERROR(-20002, 'There is no trip with this ID!');
 end;
 
 
@@ -582,7 +582,7 @@ begin
     select 1 into tmp from vw_available_trip t where t.trip_id = t_id;
 exception
     when NO_DATA_FOUND then
-        raise_application_error(-20002, 'trip not found !!!');
+        raise_application_error(-20002, 'There is no trip with this ID!');
 end;
 
 
@@ -595,7 +595,7 @@ begin
     select 1 into tmp from reservation r where r.reservation_id = r_id;
 exception
     when NO_DATA_FOUND then
-        raise_application_error(-20003, 'reservation not found !!!');
+        raise_application_error(-20003, 'There is no reservation with this ID!');
 end;
 
 
@@ -620,7 +620,7 @@ begin
       AND r.status IN ('N', 'P');
 
     IF existing_reservation > 0 THEN
-        RAISE_APPLICATION_ERROR(-20004, 'reservation already exists');
+        RAISE_APPLICATION_ERROR(-20004, 'This reservation already exists!');
     END IF;
 
     insert into reservation(trip_id, person_id, status)
@@ -644,7 +644,7 @@ as
 begin
     p_reservation_exist(vreservation_id);
     IF vstatus NOT IN ('N', 'P', 'C') THEN
-        RAISE_APPLICATION_ERROR(-20005, 'Invalid reservation status');
+        RAISE_APPLICATION_ERROR(-20005, 'Invalid reservation status!');
     END IF;
 
     SELECT STATUS, TRIP_ID
@@ -660,7 +660,7 @@ begin
         WHERE v.trip_id = vtrip_id;
 
         IF vexists = 0 THEN
-            RAISE_APPLICATION_ERROR(-20006, 'No free places available for this trip');
+            RAISE_APPLICATION_ERROR(-20006, 'No free places available for this trip!');
         END IF;
     END IF;
 
@@ -691,7 +691,7 @@ begin
     WHERE trip_id = p_trip_id AND status IN ('P', 'N');
 
     if p_max_no_places < v_reserved_places
-    then RAISE_APPLICATION_ERROR(-20004, 'Nie mozna zmniejszyc liczby miejsc!');
+    then RAISE_APPLICATION_ERROR(-20007, 'The number of places cannot be reduced!');
     end if;
 
     UPDATE trip
@@ -760,7 +760,7 @@ create or replace trigger t_prevent_reservation_delete
     on reservation
     for each row
 begin
-    RAISE_APPLICATION_ERROR(-20003, 'Usuwanie rezerwacji jest zabronione');
+    RAISE_APPLICATION_ERROR(-20008, 'Deleting reservations is forbidden!');
 end;
 
 
@@ -784,7 +784,7 @@ begin
       AND r.status IN ('N', 'P');
 
     IF existing_reservation > 0 THEN
-        RAISE_APPLICATION_ERROR(-20004, 'reservation already exists');
+        RAISE_APPLICATION_ERROR(-20004, 'This reservation already exists!');
     END IF;
 
     insert into reservation(trip_id, person_id, status)
@@ -803,7 +803,7 @@ as
 begin
     p_reservation_exist(vreservation_id);
     IF vstatus NOT IN ('N', 'P', 'C') THEN
-        RAISE_APPLICATION_ERROR(-20005, 'Invalid reservation status');
+        RAISE_APPLICATION_ERROR(-20005, 'Invalid reservation status!');
     END IF;
 
     SELECT STATUS, TRIP_ID
@@ -819,7 +819,7 @@ begin
         WHERE v.trip_id = vtrip_id;
 
         IF vexists = 0 THEN
-            RAISE_APPLICATION_ERROR(-20006, 'No free places available for this trip');
+            RAISE_APPLICATION_ERROR(-20006, 'No free places available for this trip!');
         END IF;
     END IF;
 
@@ -847,7 +847,7 @@ begin
     WHERE trip_id = p_trip_id AND status IN ('P', 'N');
 
     if p_max_no_places < v_reserved_places
-    then RAISE_APPLICATION_ERROR(-20004, 'Nie mozna zmniejszyc liczby miejsc!');
+    then RAISE_APPLICATION_ERROR(-20007, 'The number of places cannot be reduced!');
     end if;
 
     UPDATE trip
@@ -882,42 +882,27 @@ Należy przygotować procedury: `p_add_reservation_5`, `p_modify_reservation_sta
 
 ```sql
 
--- t_check_max_places
-
-create or replace trigger t_check_max_places
-    before update of max_no_places on trip
+create or replace trigger t_before_insert_reservation
+    before insert on reservation
     for each row
 declare
-    v_reserved_places int;
+    vexists INT;
 begin
-    SELECT COUNT(*)
-    INTO v_reserved_places
-    FROM reservation
-    WHERE trip_id := NEW.trip_id AND status IN ('P', 'N');
+    if :new.status IN ('N', 'P') then
+        SELECT COUNT(*)
+        INTO vexists
+        FROM vw_available_trip v
+        WHERE v.trip_id = :new.trip_id;
 
-    if :NEW.max_no_places < v_reserved_places
-        then RAISE_APPLICATION_ERROR(-20001, 'Nie mozna zmniejszyc liczby miejsc!');
+        if vexists = 0 then
+            RAISE_APPLICATION_ERROR(-20006, 'No free places available for this trip!');
+        end if;
     end if;
+
 end;
 
 
--- p_modify_max_no_places5
-
-create or replace procedure p_modify_max_no_places5
-(
-    p_trip_id in trip.trip_id%type.
-    p_max_no_places in trip.max_no_places%type
-)
-as
-begin
-    p_trip_exist(p_trip_id)
-
-    UPDATE trip
-    SET max_no_places = p_max_no_places
-    WHERE trip_id = p_trip_id
-end;
-
-
+-- t_before_changing_reservation_status
 
 create or replace trigger t_before_changing_reservation_status
     before update of status
@@ -939,12 +924,16 @@ begin
         WHERE v.trip_id = :new.trip_id;
 
         IF vexists = 0 THEN
-            RAISE_APPLICATION_ERROR(-20006, 'No free places available for this trip');
+            RAISE_APPLICATION_ERROR(-20006, 'No free places available for this trip!');
         END IF;
     END IF;
 
 end;
 
+----------------------
+
+
+-- p_modify_reservation_status_5
 
 CREATE OR REPLACE PROCEDURE p_modify_reservation_status_5(
     vreservation_id INT,
@@ -958,6 +947,48 @@ BEGIN
     WHERE reservation_id = vreservation_id;
 END;
 
+-- p_modify_max_no_places5
+
+create or replace procedure p_modify_max_no_places5
+(
+    p_trip_id in trip.trip_id%type,
+    p_max_no_places in trip.max_no_places%type
+)
+as
+begin
+    p_trip_exist(p_trip_id);
+
+    UPDATE trip
+    SET max_no_places = p_max_no_places
+    WHERE trip_id = p_trip_id;
+end;
+
+-- p_add_reservation_5
+
+create or replace procedure p_add_reservation_5(
+    vtrip_id INT,
+    vperson_id INT
+)
+as
+    existing_reservation INT;
+begin
+    p_person_exist(vperson_id);
+    p_trip_exist(vtrip_id);
+
+    SELECT COUNT(*)
+    INTO existing_reservation
+    FROM reservation r
+    WHERE r.trip_id = vtrip_id
+      AND r.person_id = vperson_id
+      AND r.status IN ('N', 'P');
+
+    if existing_reservation > 0 then
+        RAISE_APPLICATION_ERROR(-20004, 'This reservation already exists!');
+    end if;
+
+    INSERT INTO reservation(trip_id, person_id, status)
+    VALUES (vtrip_id, vperson_id, 'N');
+end;
 ```
 
 ---
