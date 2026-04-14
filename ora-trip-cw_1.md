@@ -356,7 +356,7 @@ CREATE OR REPLACE VIEW vw_trip
 AS
 SELECT T.TRIP_ID, T.country, T.trip_date, T.trip_name, T.max_no_places, T.MAX_NO_PLACES-(SELECT COUNT(*)
 FROM RESERVATION
-WHERE TRIP_ID=T.TRIP_ID AND STATUS = 'P') as REMAINING_PLACES
+WHERE TRIP_ID=T.TRIP_ID AND STATUS IN ('P', 'N')) as REMAINING_PLACES
 FROM TRIP T
 
 --vw_available_trip
@@ -912,11 +912,6 @@ declare
     vexists INT;
 begin
 
-    if :old.status != :new.status then
-        INSERT INTO log(reservation_id, log_date, status)
-        VALUES (:NEW.reservation_id, TRUNC(SYSDATE), :NEW.status);
-    end if;
-
      IF :old.status = 'C' AND (:new.status = 'P' OR :new.status = 'N') THEN
         SELECT COUNT(*)
         INTO vexists
@@ -928,6 +923,25 @@ begin
         END IF;
     END IF;
 
+end;
+
+-- t_check_max_places
+
+
+create or replace trigger t_check_max_places
+    before update of max_no_places on trip
+    for each row
+declare
+    v_reserved_places int;
+begin
+    SELECT COUNT(*)
+    INTO v_reserved_places
+    FROM reservation
+    WHERE trip_id := NEW.trip_id AND status IN ('P', 'N');
+
+    if :NEW.max_no_places < v_reserved_places
+        then RAISE_APPLICATION_ERROR(-20007, 'The number of places cannot be reduced!');
+    end if;
 end;
 
 ----------------------
