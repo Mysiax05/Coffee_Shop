@@ -9,6 +9,24 @@ Imiona i nazwiska autorów : Hubert Myszka, Michał Nowak
 
 ---
 
+<style>
+  {
+    font-size: 16pt;
+  }
+</style>
+
+<style scoped>
+ li, p {
+    font-size: 14pt;
+  }
+</style>
+
+<style scoped>
+ pre {
+    font-size: 10pt;
+  }
+</style>
+
 # Tabele
 
 ![](src/ora-trip1-0.png)
