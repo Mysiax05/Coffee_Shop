@@ -365,6 +365,48 @@ AS
 SELECT * FROM vw_trip
 WHERE REMAINING_PLACES > 0
 
+
+-- TEST
+
+SELECT * FROM vw_reservation
+
+--RESULT
+
+2,USA,2026-03-04,Chicago,Piotr,Faliszewski,P,4,1
+3,Poland,2026-04-01,Bydgoszcz,Mariusz,Meszka,P,3,2
+4,Poland,2026-04-01,Bydgoszcz,Barbara,Głut,C,3,3
+1,Poland,2025-09-12,Warsaw,Marcin,Łoś,P,1,4
+8,Iran,1997-05-13,Tehran,Marcin,Łoś,C,2,4
+5,Poland,2025-09-12,Warsaw,Marcin,Kurdziel,P,1,5
+6,Iran,1997-05-13,Tehran,Robert,Marcjan,N,2,6
+7,Poland,2026-04-01,Bydgoszcz,Michał,Idzik,P,3,7
+9,Poland,2025-09-12,Warsaw,Roman,Dębski,N,1,9
+10,Iran,1997-05-13,Tehran,Aleksandra,Gorzkowska,P,2,10
+
+
+-- TEST
+
+SELECT * FROM vw_trip;
+
+-- RESULT
+
+1,Poland,2025-09-12,Warsaw,100,97
+2,Iran,1997-05-13,Tehran,50,48
+3,Poland,2026-04-01,Bydgoszcz,10,8
+4,USA,2026-03-04,Chicago,1,0
+
+
+-- TEST
+
+SELECT * FROM vw_available_trip;
+
+-- RESULT
+
+1,Poland,2025-09-12,Warsaw,100,98
+2,Iran,1997-05-13,Tehran,50,49
+3,Poland,2026-04-01,Bydgoszcz,10,8
+
+
 ```
 
 ---
@@ -499,9 +541,38 @@ begin
     return result;
 end;
 
---testy
+-- TEST
 
---select trip_id,trip_name,trip_date,remaining_places from table(f_available_trips_to ('Poland','1980-01-01','2025-12-12'));
+SELECT * FROM TABLE(f_trip_participants(3));
+
+--RESULT
+
+2,Mariusz,Meszka
+3,Barbara,Głut
+7,Michał,Idzik
+
+
+
+-- TEST
+
+SELECT * FROM TABLE(f_person_reservations(4));
+
+-- RESULT
+
+1,1,4,P
+8,2,4,C
+
+
+
+-- TEST
+
+SELECT * FROM TABLE(f_available_trips_to('Poland', TO_DATE('2000-01-01', 'YYYY-MM-DD'), TO_DATE('2030-12-31', 'YYYY-MM-DD')));
+
+-- RESULT
+
+1,Warsaw,2025-09-12,97
+3,Bydgoszcz,2026-04-01,8
+
 
 ```
 
@@ -699,6 +770,37 @@ begin
     WHERE trip_id = p_trip_id;
 end;
 
+
+-- TEST
+
+CALL p_add_reservation_4(1, 11);
+COMMIT;
+SELECT * FROM log ORDER BY log_date DESC, log_id DESC;
+
+--RESULT
+
+41,31,2026-04-14,N
+
+
+-- TEST
+
+CALL p_modify_reservation_status_4(2, 'C');
+COMMIT;
+SELECT * FROM log ORDER BY log_date DESC, log_id DESC;
+
+-- RESULT
+
+42,32,2026-04-14,N
+
+
+-- TEST
+
+DELETE FROM reservation WHERE reservation_id = 1;
+
+-- RESULT
+
+Błąd! ORA-20008: Deleting reservations is forbidden!
+
 ```
 
 ---
@@ -855,6 +957,38 @@ begin
     WHERE trip_id = p_trip_id;
 end;
 
+-- TEST
+
+CALL p_add_reservation_4(3, 12);
+COMMIT;
+SELECT * FROM log ORDER BY log_date DESC, log_id DESC;
+
+-- RESULT
+
+43,33,2026-04-14,N
+
+
+-- TEST
+
+CALL p_modify_reservation_status_4(7, 'C');
+COMMIT;
+SELECT * FROM log ORDER BY log_date DESC, log_id DESC;
+
+-- RESULT
+
+44,7,2026-04-14,C
+
+
+-- TEST
+
+DELETE FROM reservation WHERE reservation_id = 1;
+
+-- RESULT
+
+ORA-20008: Deleting reservations is forbidden!
+ORA-06512: przy "T_PREVENT_RESERVATION_DELETE", linia 2
+ORA-04088: błąd w trakcie wykonywania wyzwalacza 'T_PREVENT_RESERVATION_DELETE'
+
 ```
 
 ---
@@ -881,6 +1015,8 @@ Należy przygotować procedury: `p_add_reservation_5`, `p_modify_reservation_sta
 # Zadanie 5 - rozwiązanie
 
 ```sql
+
+-- t_before_insert_reservation
 
 create or replace trigger t_before_insert_reservation
     before insert on reservation
@@ -925,8 +1061,8 @@ begin
 
 end;
 
--- t_check_max_places
 
+-- t_check_max_places
 
 create or replace trigger t_check_max_places
     before update of max_no_places on trip
@@ -937,7 +1073,7 @@ begin
     SELECT COUNT(*)
     INTO v_reserved_places
     FROM reservation
-    WHERE trip_id := NEW.trip_id AND status IN ('P', 'N');
+    WHERE trip_id = :NEW.trip_id AND status IN ('P', 'N');
 
     if :NEW.max_no_places < v_reserved_places
         then RAISE_APPLICATION_ERROR(-20007, 'The number of places cannot be reduced!');
@@ -1003,6 +1139,36 @@ begin
     INSERT INTO reservation(trip_id, person_id, status)
     VALUES (vtrip_id, vperson_id, 'N');
 end;
+
+-- TEST
+
+CALL p_add_reservation_5(1, 13);
+
+-- RESULT
+
+Zakończono pomyślnie
+
+-- TEST
+
+CALL p_modify_reservation_status_5(4, 'P');
+
+-- RESULT
+
+ORA-04091: tabela RESERVATION ulega mutacji, wyzwalacz/funkcja może tego nie widzieć
+[2026-04-14 23:42:25] 	ORA-06512: przy "T_BEFORE_CHANGING_RESERVATION_STATUS", linia 6
+[2026-04-14 23:42:25] 	ORA-04088: błąd w trakcie wykonywania wyzwalacza 'T_BEFORE_CHANGING_RESERVATION_STATUS'
+[2026-04-14 23:42:25] 	ORA-06512: przy "P_MODIFY_RESERVATION_STATUS_5", linia 8
+
+
+-- TEST
+
+CALL p_modify_max_no_places5(2, 60);
+COMMIT;
+
+-- RESULT
+
+Zakończono pomyślnie
+
 ```
 
 ---
@@ -1011,8 +1177,12 @@ end;
 
 Porównaj sposób programowania w systemie Oracle PL/SQL ze znanym ci systemem/językiem MS Sqlserver T-SQL
 
-```sql
+**1. Obsługa transakcji (Commit / Rollback):**
 
--- komentarz ...
+- **Oracle PL/SQL:** Domyślnie działa w trybie niejawnym – pierwsza instrukcja modyfikująca dane (DML) automatycznie otwiera transakcję. Aby trwale zapisać zmiany, zawsze należy jawnie wywołać `COMMIT`. Do obsługi błędów bez przerywania całej transakcji używa się `SAVEPOINT`. Wewnątrz procedur, dobrą praktyką jest _brak_ wewnętrznych zatwierdzeń (Commitów), aby nadrzędna aplikacja mogła w pełni kontrolować transakcję.
+- **MS SQL Server (T-SQL):** Działa domyślnie w trybie auto-commit – każda pojedyncza instrukcja DML jest natychmiastowo zatwierdzana. Aby wykonać transakcję składającą się z wielu kroków, należy jawnie ją rozpocząć za pomocą `BEGIN TRAN` (lub `BEGIN TRANSACTION`), a na końcu wywołać `COMMIT` lub `ROLLBACK`.
 
-```
+**2. Obsługa błędów:**
+
+- **Oracle PL/SQL:** Wykorzystuje blok `EXCEPTION` umieszczany na końcu bloku `BEGIN ... END;`. Błędy i reguły biznesowe zgłasza się najczęściej procedurą `RAISE_APPLICATION_ERROR(-20XXX, 'komunikat');`.
+- **MS SQL Server (T-SQL):** Stosuje nowoczesną, zbliżoną do języków programowania strukturę `BEGIN TRY ... END TRY BEGIN CATCH ... END CATCH`. Błędy wywoływane są poleceniami `RAISERROR` lub (w nowszych wersjach) `THROW`.
