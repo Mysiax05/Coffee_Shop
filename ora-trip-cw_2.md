@@ -8,7 +8,7 @@ widoki, funkcje, procedury, triggery
 
 ---
 
-Imiona i nazwiska autorów :
+Imiona i nazwiska autorów : Hubert Myszka, Michał Nowak
 
 ---
 
@@ -66,15 +66,15 @@ BEGIN
             SELECT COUNT(*)
             FROM reservation r
             WHERE r.trip_id = t.trip_id
-              AND r.status = 'P'
+              AND r.status IN ('N', 'P')
         );
 END;
-/
+
 
 BEGIN
     p_update_no_available_places;
 END;
-/
+
 
 ```
 
@@ -97,6 +97,8 @@ Obsługę pola `no_available_places` należy zrealizować przy pomocy procedur
 
 ```sql
 
+-- p_add_reservation_6a
+
 CREATE OR REPLACE PROCEDURE p_add_reservation_6a(
     vtrip_id INT,
     vperson_id INT
@@ -115,7 +117,7 @@ BEGIN
     WHERE trip_id = vtrip_id;
 
     IF vavailable_places <= 0 THEN
-        RAISE_APPLICATION_ERROR(-20006, 'No free places available for this trip');
+        RAISE_APPLICATION_ERROR(-20006, 'No free places available for this trip!');
     END IF;
 
     SELECT COUNT(*)
@@ -126,7 +128,7 @@ BEGIN
       AND r.status IN ('N', 'P');
 
     IF existing_reservation > 0 THEN
-        RAISE_APPLICATION_ERROR(-20004, 'Reservation already exists');
+        RAISE_APPLICATION_ERROR(-20004, 'Reservation already exists!');
     END IF;
 
     INSERT INTO reservation(trip_id, person_id, status)
@@ -142,7 +144,60 @@ BEGIN
     INSERT INTO log(reservation_id, log_date, status)
     VALUES (vreservation_id, vlog_date, 'N');
 END;
-/
+
+
+-- p_modify_reservation_status_6a
+
+CREATE OR REPLACE PROCEDURE p_modify_reservation_status_6a(
+    vreservation_id INT,
+    vnew_status CHAR
+) AS
+    vold_status CHAR(1);
+    vtrip_id INT;
+    vavailable_places INT;
+BEGIN
+    SELECT status, trip_id INTO vold_status, vtrip_id
+    FROM reservation
+    WHERE reservation_id = vreservation_id;
+
+    IF vold_status = vnew_status THEN
+        RETURN;
+    END IF;
+
+    IF vold_status = 'C' AND vnew_status IN ('N', 'P') THEN
+        SELECT no_available_places INTO vavailable_places FROM trip WHERE trip_id = vtrip_id;
+        IF vavailable_places <= 0 THEN
+            RAISE_APPLICATION_ERROR(-20006, 'No free places available for this trip!');
+        END IF;
+        UPDATE trip SET no_available_places = no_available_places - 1 WHERE trip_id = vtrip_id;
+    END IF;
+
+    IF vold_status IN ('N', 'P') AND vnew_status = 'C' THEN
+        UPDATE trip SET no_available_places = no_available_places + 1 WHERE trip_id = vtrip_id;
+    END IF;
+
+    UPDATE reservation SET status = vnew_status WHERE reservation_id = vreservation_id;
+
+    INSERT INTO log(reservation_id, log_date, status) VALUES (vreservation_id, TRUNC(SYSDATE), vnew_status);
+END;
+
+
+-- p_modify_max_places_6a
+
+CREATE OR REPLACE PROCEDURE p_modify_max_places_6a(
+    vtrip_id INT,
+    vnew_max_places INT
+) AS
+    vold_max_places INT;
+    vplaces_difference INT;
+BEGIN
+    SELECT max_no_places INTO vold_max_places FROM trip WHERE trip_id = vtrip_id;
+    vplaces_difference := vnew_max_places - vold_max_places;
+    UPDATE trip
+    SET max_no_places = vnew_max_places,
+        no_available_places = no_available_places + vplaces_difference
+    WHERE trip_id = vtrip_id;
+END;
 
 ```
 
@@ -165,8 +220,9 @@ Obsługę pola `no_available_places` należy zrealizować przy pomocy triggerów
 
 ```sql
 
+-- t_changed_reservation_status_6b
 
-CREATE OR REPLACE TRIGGER T_CHANGED_RESERVATION_STATUS_6b
+CREATE OR REPLACE TRIGGER t_changed_reservation_status_6b
 AFTER UPDATE OF status
 ON reservation
 FOR EACH ROW
@@ -187,6 +243,34 @@ BEGIN
         END IF;
     END IF;
 END;
-/
+
+
+-- t_add_reservation_6b
+
+CREATE OR REPLACE TRIGGER t_add_reservation_6b
+AFTER INSERT ON reservation
+FOR EACH ROW
+BEGIN
+    INSERT INTO log(reservation_id, log_date, status)
+    VALUES (:NEW.reservation_id, TRUNC(SYSDATE), :NEW.status);
+
+    IF :NEW.status IN ('N', 'P') THEN
+        UPDATE trip
+        SET no_available_places = no_available_places - 1
+        WHERE trip_id = :NEW.trip_id;
+    END IF;
+END;
+
+
+-- t_update_trip_max_places_6b
+
+CREATE OR REPLACE TRIGGER t_update_trip_max_places_6b
+BEFORE UPDATE OF max_no_places ON trip
+FOR EACH ROW
+BEGIN
+    IF :OLD.max_no_places <> :NEW.max_no_places THEN
+        :NEW.no_available_places := :OLD.no_available_places + (:NEW.max_no_places - :OLD.max_no_places);
+    END IF;
+END;
 
 ```
