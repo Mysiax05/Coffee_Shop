@@ -57,7 +57,24 @@ alter table trip add
 
 ```sql
 
--- wyniki, kod, zrzuty ekranów, komentarz ...
+CREATE OR REPLACE PROCEDURE p_update_no_available_places
+AS
+BEGIN
+    UPDATE trip t
+    SET no_available_places =
+        t.max_no_places - (
+            SELECT COUNT(*)
+            FROM reservation r
+            WHERE r.trip_id = t.trip_id
+              AND r.status = 'P'
+        );
+END;
+/
+
+BEGIN
+    p_update_no_available_places;
+END;
+/
 
 ```
 
@@ -80,7 +97,52 @@ Obsługę pola `no_available_places` należy zrealizować przy pomocy procedur
 
 ```sql
 
--- wyniki, kod, zrzuty ekranów, komentarz ...
+CREATE OR REPLACE PROCEDURE p_add_reservation_6a(
+    vtrip_id INT,
+    vperson_id INT
+) AS
+    vlog_date              DATE;
+    existing_reservation   INT;
+    vreservation_id        INT;
+    vavailable_places      INT;
+BEGIN
+    p_person_exist(vperson_id);
+    p_trip_exist(vtrip_id);
+
+    SELECT no_available_places
+    INTO vavailable_places
+    FROM trip
+    WHERE trip_id = vtrip_id;
+
+    IF vavailable_places <= 0 THEN
+        RAISE_APPLICATION_ERROR(-20006, 'No free places available for this trip');
+    END IF;
+
+    SELECT COUNT(*)
+    INTO existing_reservation
+    FROM reservation r
+    WHERE r.trip_id = vtrip_id
+      AND r.person_id = vperson_id
+      AND r.status IN ('N', 'P');
+
+    IF existing_reservation > 0 THEN
+        RAISE_APPLICATION_ERROR(-20004, 'Reservation already exists');
+    END IF;
+
+    INSERT INTO reservation(trip_id, person_id, status)
+    VALUES (vtrip_id, vperson_id, 'N')
+    RETURNING reservation_id INTO vreservation_id;
+
+    UPDATE trip t
+    SET no_available_places = no_available_places - 1
+    WHERE t.trip_id = vtrip_id;
+
+    vlog_date := TRUNC(SYSDATE);
+
+    INSERT INTO log(reservation_id, log_date, status)
+    VALUES (vreservation_id, vlog_date, 'N');
+END;
+/
 
 ```
 
@@ -103,6 +165,28 @@ Obsługę pola `no_available_places` należy zrealizować przy pomocy triggerów
 
 ```sql
 
--- wyniki, kod, zrzuty ekranów, komentarz ...
+
+CREATE OR REPLACE TRIGGER T_CHANGED_RESERVATION_STATUS_6b
+AFTER UPDATE OF status
+ON reservation
+FOR EACH ROW
+BEGIN
+    IF :OLD.status <> :NEW.status THEN
+        INSERT INTO log(reservation_id, log_date, status)
+        VALUES (:NEW.reservation_id, TRUNC(SYSDATE), :NEW.status);
+
+        IF :OLD.status IN ('N', 'P') AND :NEW.status = 'C' THEN
+            UPDATE trip
+            SET no_available_places = no_available_places + 1
+            WHERE trip_id = :NEW.trip_id;
+
+        ELSIF :OLD.status = 'C' AND :NEW.status IN ('N', 'P') THEN
+            UPDATE trip
+            SET no_available_places = no_available_places - 1
+            WHERE trip_id = :NEW.trip_id;
+        END IF;
+    END IF;
+END;
+/
 
 ```
