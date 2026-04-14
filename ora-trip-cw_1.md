@@ -917,6 +917,47 @@ begin
     WHERE trip_id = p_trip_id
 end;
 
+
+
+create or replace trigger t_before_changing_reservation_status
+    before update of status
+    on reservation
+    for each row
+declare
+    vexists INT;
+begin
+
+    if :old.status != :new.status then
+        INSERT INTO log(reservation_id, log_date, status)
+        VALUES (:NEW.reservation_id, TRUNC(SYSDATE), :NEW.status);
+    end if;
+
+     IF :old.status = 'C' AND (:new.status = 'P' OR :new.status = 'N') THEN
+        SELECT COUNT(*)
+        INTO vexists
+        FROM vw_available_trip v
+        WHERE v.trip_id = :new.trip_id;
+
+        IF vexists = 0 THEN
+            RAISE_APPLICATION_ERROR(-20006, 'No free places available for this trip');
+        END IF;
+    END IF;
+
+end;
+
+
+CREATE OR REPLACE PROCEDURE p_modify_reservation_status_5(
+    vreservation_id INT,
+    vstatus CHAR
+) AS
+BEGIN
+    p_reservation_exist(vreservation_id);
+
+    UPDATE reservation
+    SET status = vstatus
+    WHERE reservation_id = vreservation_id;
+END;
+
 ```
 
 ---
