@@ -76,6 +76,19 @@ BEGIN
 END;
 
 
+-- TEST
+
+SELECT trip_id, max_no_places, no_available_places FROM trip;
+
+-- RESULT
+
+1,100,95
+2,60,58
+3,10,7
+4,1,1
+
+
+
 ```
 
 ---
@@ -199,6 +212,49 @@ BEGIN
     WHERE trip_id = vtrip_id;
 END;
 
+
+-- TEST
+
+CALL p_add_reservation_6a(3, 5);
+COMMIT;
+SELECT trip_id, max_no_places, no_available_places FROM trip WHERE trip_id = 3;
+
+-- RESULT
+
+3,15,8
+
+-- TEST
+
+SELECT reservation_id FROM reservation WHERE trip_id = 3 AND person_id = 5;
+
+-- RESULT
+
+38
+
+
+-- TEST
+
+CALL p_modify_reservation_status_6a(38, 'C');
+COMMIT;
+SELECT trip_id, max_no_places, no_available_places FROM trip WHERE trip_id = 3;
+
+-- RESULT
+
+3,15,10
+
+
+
+-- TEST
+
+CALL p_modify_max_places_6a(3, 20);
+COMMIT;
+SELECT trip_id, max_no_places, no_available_places FROM trip WHERE trip_id = 3;
+
+-- RESULT
+
+3,20,15
+
+
 ```
 
 ---
@@ -272,5 +328,27 @@ BEGIN
         :NEW.no_available_places := :OLD.no_available_places + (:NEW.max_no_places - :OLD.max_no_places);
     END IF;
 END;
+
+
+-- TEST
+
+INSERT INTO reservation(trip_id, person_id, status) VALUES (4, 2, 'N');
+COMMIT;
+SELECT trip_id, no_available_places FROM trip WHERE trip_id = 4;
+
+-- RESULT
+
+4,0
+
+
+-- TEST
+
+UPDATE reservation SET status = 'C' WHERE trip_id = 4 AND person_id = 2;
+COMMIT;
+SELECT trip_id, no_available_places FROM trip WHERE trip_id = 4;
+
+-- RESULT
+
+4,1
 
 ```
