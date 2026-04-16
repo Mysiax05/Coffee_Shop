@@ -1034,7 +1034,7 @@ Należy przygotować procedury: `p_add_reservation_5`, `p_modify_reservation_sta
 
 ```sql
 
--- t_before_insert_reservation
+-- t_before_insert_reservation -- DO POPRAWY
 
 create or replace trigger t_before_insert_reservation
     before insert on reservation
@@ -1056,7 +1056,7 @@ begin
 end;
 
 
--- t_before_changing_reservation_status
+-- t_before_changing_reservation_status -- DO POPRAWY
 
 create or replace trigger t_before_changing_reservation_status
     before update of status

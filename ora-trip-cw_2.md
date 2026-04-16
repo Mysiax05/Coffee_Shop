@@ -276,7 +276,7 @@ Obsługę pola `no_available_places` należy zrealizować przy pomocy triggerów
 
 ```sql
 
--- t_changed_reservation_status_6b
+-- t_changed_reservation_status_6b -- DO POPRAWY
 
 CREATE OR REPLACE TRIGGER t_changed_reservation_status_6b
 AFTER UPDATE OF status
@@ -318,7 +318,7 @@ BEGIN
 END;
 
 
--- t_update_trip_max_places_6b
+-- t_update_trip_max_places_6b -- DO POPRAWY
 
 CREATE OR REPLACE TRIGGER t_update_trip_max_places_6b
 BEFORE UPDATE OF max_no_places ON trip
