@@ -57,103 +57,73 @@ Imiona i nazwiska autorów : Hubert Myszka, Michał Nowak
   - `status` - status
 
 ```sql
-create sequence s_person_seq
-   start with 1
-   increment by 1;
+BEGIN;
 
 create table person
 (
-  person_id int not null
-      constraint pk_person
-         primary key,
-  firstname varchar(50),
-  lastname varchar(50)
-)
-
-alter table person
-    modify person_id int default s_person_seq.nextval;
-
-```
-
-```sql
-create sequence s_trip_seq
-   start with 1
-   increment by 1;
+    person_id int
+        generated always
+            as identity
+                primary key,
+    firstname varchar(50),
+    lastname varchar(50)
+);
 
 create table trip
 (
-  trip_id int  not null
-     constraint pk_trip
-         primary key,
-  trip_name varchar(100),
-  country varchar(50),
-  trip_date date,
-  max_no_places int
+    trip_id int
+        generated always
+            as identity
+                primary key,
+    trip_name varchar(100),
+    country varchar(50),
+    trip_date date,
+    max_no_places int
 );
-
-alter table trip
-    modify trip_id int default s_trip_seq.nextval;
-```
-
-```sql
-create sequence s_reservation_seq
-   start with 1
-   increment by 1;
 
 create table reservation
 (
-  reservation_id int not null
-      constraint pk_reservation
-         primary key,
-  trip_id int,
-  person_id int,
-  status char(1)
+    reservation_id int
+        generated always
+            as identity
+                primary key,
+    trip_id int not null ,
+    person_id int not null ,
+    status char(1)
 );
 
 alter table reservation
-    modify reservation_id int default s_reservation_seq.nextval;
-
-
-alter table reservation
 add constraint reservation_fk1 foreign key
-( person_id ) references person ( person_id );
+(person_id) references person (person_id);
 
 alter table reservation
 add constraint reservation_fk2 foreign key
-( trip_id ) references trip ( trip_id );
+(trip_id) references trip (trip_id);
 
 alter table reservation
 add constraint reservation_chk1 check
-(status in ('N','P','C'));
-
-```
-
-```sql
-create sequence s_log_seq
-   start with 1
-   increment by 1;
-
+(status in ('N', 'P', 'C'));
 
 create table log
 (
-    log_id int not null
-         constraint pk_log
-         primary key,
+    log_id int
+        generated always
+            as identity
+                primary key,
     reservation_id int not null,
     log_date date not null,
     status char(1)
 );
 
 alter table log
-    modify log_id int default s_log_seq.nextval;
+add constraint log_fk1 foreign key
+(reservation_id) references reservation (reservation_id);
 
 alter table log
 add constraint log_chk1 check
-(status in ('N','P','C')) enable;
+(status in ('P', 'C', 'K'));
 
-alter table log
-add constraint log_fk1 foreign key
-( reservation_id ) references reservation ( reservation_id );
+COMMIT;
 ```
 
 ---
