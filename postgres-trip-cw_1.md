@@ -491,133 +491,77 @@ Proponowany zestaw funkcji można rozbudować wedle uznania/potrzeb
 ```sql
 
 -- f_trip_participants
-create or replace type trip_participant as OBJECT
-(
-    person_id int,
-    firstname varchar(50),
-    lastname varchar(50)
-);
+create or replace function f_trip_participants (f_trip_id int)
+returns setof vw_reservation as $$
+    begin
+        if not exists (select 1 from trip where trip_id = f_trip_id) then
+            raise exception 'Trip with ID % does not exist!', f_trip_id;
+        end if;
 
-create or replace type trip_participants_table is table of trip_participant;
-
-create or replace function f_trip_participants(trip_id int)
-    return  trip_participants_table
-as
-    result trip_participants_table;
-    trip_exists int;
-begin
-    SELECT COUNT(*)
-    INTO trip_exists
-    FROM trip t
-    WHERE t.trip_id = f_trip_participants.trip_id;
-
-    if trip_exists = 0
-    then RAISE_APPLICATION_ERROR(-20001, 'There is no trip with this ID!');
-    end if;
-
-    SELECT trip_participant(v.person_id, v.firstname, v.lastname)
-    bulk collect
-    INTO result
-    FROM vw_reservation v
-    WHERE v.trip_id = f_trip_participants.trip_id;
-
-    return result;
-end;
-
+        return query
+        select * from vw_reservation
+        where trip_id = f_trip_id;
+    end;
+$$ language plpgsql;
 
 -- f_person_reservations
+create or replace function f_person_reservations (f_person_id int)
+returns setof vw_reservation as $$
+    begin
+        if not exists (select 1 from person where person_id = f_person_id) then
+            raise exception 'Person with ID % does not exist!', f_person_id;
+        end if;
 
-create or replace type person_reservation as OBJECT
-(
-    reservation_id int,
-    trip_id        int,
-    person_id      int,
-    status         char(1)
-);
-
-create or replace type person_reservations_table is table of person_reservation;
-
-create or replace function f_person_reservations(person_id int)
-    return person_reservations_table
-as
-    result person_reservations_table;
-    person_exists int;
-begin
-    SELECT COUNT(*)
-    INTO person_exists
-    FROM person p
-    WHERE p.person_id = f_person_reservations.person_id;
-
-    if person_exists = 0
-    then RAISE_APPLICATION_ERROR(-20002, 'There is no person with this ID!');
-    end if;
-
-    SELECT person_reservation(v.reservation_id, v.trip_id, v.person_id, v.status)
-    bulk collect
-    into result
-    FROM vw_reservation v
-    WHERE v.person_id = f_person_reservations.person_id;
-
-    return result;
-end;
-
+        return query
+        select * from vw_reservation
+        where person_id = f_person_id;
+    end;
+$$ language plpgsql;
 
 -- f_available_trips_to
+create or replace function f_available_trips_to
+    (f_country varchar, f_date_from date, f_date_to date)
+returns setof vw_available_trip as $$
+    begin
+        if f_date_from > f_date_to then
+            raise exception 'Start date (%) cannot be later than end date (%)!', f_date_from, f_date_to;
+        end if;
 
-create or replace type available_trip as OBJECT
-(
-trip_id int,
-trip_name varchar(100),
-trip_date date,
-remaining_places int
-);
-
-create or replace type available_trip_table is table of available_trip;
-
-create or replace function f_available_trips_to(destination_country varchar, date_from date, date_to date)
-    return available_trip_table
-as
-    result available_trip_table:= available_trip_table();
-begin
-    select available_trip(tr.trip_id,tr.trip_name,tr.trip_date,tr.remaining_places)
-    bulk collect
-    into result
-    from vw_trip tr
-    where tr.country=destination_country and tr.trip_date between date_from and date_to;
-    return result;
-end;
+        return query
+        select * from vw_available_trip
+        where country = f_country
+            and trip_date between f_date_from and f_date_to;
+    end;
+$$ language plpgsql;
 
 -- TEST
 
-SELECT * FROM TABLE(f_trip_participants(3));
+select * from f_trip_participants(3);
 
 --RESULT
 
-2,Mariusz,Meszka
-3,Barbara,Głut
-7,Michał,Idzik
-
-
-
--- TEST
-
-SELECT * FROM TABLE(f_person_reservations(4));
-
--- RESULT
-
-1,1,4,P
-8,2,4,C
-
+5,Poland,2026-01-01,Cracow,Zbigniew,Kąkol,N,3,5
+6,Poland,2026-01-01,Cracow,Stanisław,Polak,P,3,6
+7,Poland,2026-01-01,Cracow,Radosław,Klimek,C,3,7
 
 
 -- TEST
 
-SELECT * FROM TABLE(f_available_trips_to('Poland', TO_DATE('2000-01-01', 'YYYY-MM-DD'), TO_DATE('2030-12-31', 'YYYY-MM-DD')));
+select * from f_person_reservations(4);
 
 -- RESULT
 
-1,Warsaw,2025-09-12,97
-3,Bydgoszcz,2026-04-01,8
+4,Poland,2026-07-01,Warsaw,Marcin,Kuta,C,2,4
+
+
+-- TEST
+
+select * from f_available_trips_to('Poland', '2025-01-01', '2027-01-01');
+
+-- RESULT
+
+2,Poland,2026-07-01,Warsaw,10,8
+3,Poland,2026-01-01,Cracow,6,4
 
 
 ```
