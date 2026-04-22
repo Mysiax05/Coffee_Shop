@@ -490,31 +490,79 @@ Proponowany zestaw funkcji można rozbudować wedle uznania/potrzeb
 
 ```sql
 
--- f_trip_participants
-create or replace function f_trip_participants (f_trip_id int)
-returns setof vw_reservation as $$
-    begin
-        if not exists (select 1 from trip where trip_id = f_trip_id) then
-            raise exception 'Trip with ID % does not exist!', f_trip_id;
-        end if;
+-- pomocnicze
 
-        return query
-        select * from vw_reservation
-        where trip_id = f_trip_id;
+-- f_person_exist
+create or replace function f_person_exist(p_person_id int)
+returns void as $$
+    begin
+        if not exists(select 1
+                      from person
+                      where person_id = p_person_id) then
+            raise exception 'Person with ID % does not exist!', p_person_id;
+        end if;
     end;
 $$ language plpgsql;
+
+-- f_trip_exist
+create or replace function f_trip_exist(p_trip_id int)
+returns void as $$
+    begin
+        if not exists (select 1
+                       from vw_trip
+                       where trip_id = p_trip_id) then
+            raise exception 'Trip with ID % does not exist!', p_trip_id;
+        end if;
+    end;
+$$ language plpgsql;
+
+-- f_available_trip_exist
+create or replace function f_available_trip_exist(p_trip_id int)
+returns void as $$
+    begin
+        if not exists(select 1
+                      from vw_available_trip
+                      where trip_id = p_trip_id) then
+            raise exception 'No free places available for trip with ID %!', p_trip_id;
+        end if;
+    end;
+$$ language plpgsql;
+
+-- f_reservation_exist
+create or replace function f_reservation_exist(p_reservation_id int)
+returns void as $$
+    begin
+        if not exists(select 1
+                      from reservation
+                      where reservation_id = p_reservation_id) then
+            raise exception 'Reservation with ID % does not exist!', p_reservation_id;
+        end if;
+    end;
+$$ language plpgsql;
+
+---------------------------
 
 -- f_person_reservations
 create or replace function f_person_reservations (f_person_id int)
 returns setof vw_reservation as $$
     begin
-        if not exists (select 1 from person where person_id = f_person_id) then
-            raise exception 'Person with ID % does not exist!', f_person_id;
-        end if;
+        perform f_person_exist(f_person_id);
 
         return query
         select * from vw_reservation
         where person_id = f_person_id;
+    end;
+$$ language plpgsql;
+
+-- f_trip_participants
+create or replace function f_trip_participants (f_trip_id int)
+returns setof vw_reservation as $$
+    begin
+        perform f_trip_exist(f_trip_id);
+
+        return query
+        select * from vw_reservation
+        where trip_id = f_trip_id;
     end;
 $$ language plpgsql;
 
