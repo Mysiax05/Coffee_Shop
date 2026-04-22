@@ -376,44 +376,58 @@ Proponowany zestaw widoków można rozbudować wedle uznania/potrzeb
 ```sql
 
 --vw_reservation
-CREATE OR REPLACE VIEW vw_reservation
-AS
-SELECT RESERVATION_ID , T.COUNTRY,T.trip_date, T.trip_name, P.firstname, P.lastname, status, R.trip_id, R.person_id
-FROM RESERVATION R
-INNER JOIN TRIP T ON R.TRIP_ID=T.TRIP_ID
-INNER JOIN PERSON P ON R.PERSON_ID=P.PERSON_ID
+create or replace view vw_reservation as
+    select r.reservation_id,
+           t.country,
+           t.trip_date,
+           t.trip_name,
+           p.firstname,
+           p.lastname,
+           r.status,
+           r.trip_id,
+           r.person_id
+    from reservation r
+    inner join trip t on t.trip_id = r.trip_id
+    inner join person p on p.person_id = r.person_id;
 
 --vw_trip
-CREATE OR REPLACE VIEW vw_trip
-AS
-SELECT T.TRIP_ID, T.country, T.trip_date, T.trip_name, T.max_no_places, T.MAX_NO_PLACES-(SELECT COUNT(*)
-FROM RESERVATION
-WHERE TRIP_ID=T.TRIP_ID AND STATUS IN ('P', 'N')) as REMAINING_PLACES
-FROM TRIP T
+create or replace view vw_trip as
+    select t.trip_id,
+       t.country,
+       t.trip_date,
+       t.trip_name,
+       t.max_no_places,
+       t.max_no_places -
+       (select count(*)
+            from reservation r
+            where t.trip_id = r.trip_id
+                and r.status in ('N', 'P'))
+        as remaining_places
+    from trip t;
 
 --vw_available_trip
-CREATE OR REPLACE VIEW vw_available
-AS
-SELECT * FROM vw_trip
-WHERE REMAINING_PLACES > 0
+create or replace view vw_available_trip as
+    select *
+    from vw_trip
+    where remaining_places > 0;
 
 
 -- TEST
 
-SELECT * FROM vw_reservation
+select * from vw_reservation;
 
 --RESULT
 
-2,USA,2026-03-04,Chicago,Piotr,Faliszewski,P,4,1
-3,Poland,2026-04-01,Bydgoszcz,Mariusz,Meszka,P,3,2
-4,Poland,2026-04-01,Bydgoszcz,Barbara,Głut,C,3,3
-1,Poland,2025-09-12,Warsaw,Marcin,Łoś,P,1,4
-8,Iran,1997-05-13,Tehran,Marcin,Łoś,C,2,4
-5,Poland,2025-09-12,Warsaw,Marcin,Kurdziel,P,1,5
-6,Iran,1997-05-13,Tehran,Robert,Marcjan,N,2,6
-7,Poland,2026-04-01,Bydgoszcz,Michał,Idzik,P,3,7
-9,Poland,2025-09-12,Warsaw,Roman,Dębski,N,1,9
-10,Iran,1997-05-13,Tehran,Aleksandra,Gorzkowska,P,2,10
+1,USA,2026-03-01,Chicago,Piotr,Faliszewski,P,1,1
+2,Poland,2026-07-01,Warsaw,Robert,Marcjan,N,2,2
+3,Poland,2026-07-01,Warsaw,Marcin,Kurdziel,P,2,3
+4,Poland,2026-07-01,Warsaw,Marcin,Kuta,C,2,4
+5,Poland,2026-01-01,Cracow,Zbigniew,Kąkol,N,3,5
+6,Poland,2026-01-01,Cracow,Stanisław,Polak,P,3,6
+7,Poland,2026-01-01,Cracow,Radosław,Klimek,C,3,7
+8,Germany,2026-08-01,Berlin,Katarzyna,Rycerz,N,4,8
+9,Germany,2026-08-01,Berlin,Barbara,Głut,P,4,9
+10,Germany,2026-08-01,Berlin,Roman,Dębski,C,4,10
 
 
 -- TEST
@@ -422,21 +436,21 @@ SELECT * FROM vw_trip;
 
 -- RESULT
 
-1,Poland,2025-09-12,Warsaw,100,97
-2,Iran,1997-05-13,Tehran,50,48
-3,Poland,2026-04-01,Bydgoszcz,10,8
-4,USA,2026-03-04,Chicago,1,0
+1,USA,2026-03-01,Chicago,1,0
+2,Poland,2026-07-01,Warsaw,10,8
+3,Poland,2026-01-01,Cracow,6,4
+4,Germany,2026-08-01,Berlin,7,5
 
 
 -- TEST
 
-SELECT * FROM vw_available_trip;
+select * from vw_available_trip;
 
 -- RESULT
 
-1,Poland,2025-09-12,Warsaw,100,98
-2,Iran,1997-05-13,Tehran,50,49
-3,Poland,2026-04-01,Bydgoszcz,10,8
+2,Poland,2026-07-01,Warsaw,10,8
+3,Poland,2026-01-01,Cracow,6,4
+4,Germany,2026-08-01,Berlin,7,5
 
 
 ```
