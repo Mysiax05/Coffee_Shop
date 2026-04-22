@@ -121,7 +121,7 @@ add constraint log_fk1 foreign key
 
 alter table log
 add constraint log_chk1 check
-(status in ('P', 'C', 'K'));
+(status in ('N', 'P', 'C'));
 
 COMMIT;
 ```
@@ -197,23 +197,25 @@ Należy przeprowadzić kilka eksperymentów związanych ze wstawianiem, modyfika
 oraz wykorzystaniem transakcji
 
 Skomentuj dzialanie transakcji. Jak działa polecenie `commit`, `rollback`?.
-Co się dzieje w przypadku wystąpienia błędów podczas wykonywania transakcji? Porównaj sposób programowania operacji wykorzystujących transakcje w PostgreSQL PL/pgSQL ze znanym ci systemem/językiem MS Sqlserver T-SQL
+Co się dzieje w przypadku wystąpienia błędów podczas wykonywania transakcji? Porównaj sposób programowania operacji wykorzystujących transakcje w PostgreSQL PL/pgSQL ze znanym ci systemem/językiem Oracle PL/SQL.
 
 ```sql
 
-SET TRANSACTION READ WRITE NAME 'add_people';
+BEGIN;
+set transaction read write;
 
-insert into PERSON (FIRSTNAME, LASTNAME)
-values ('Marcin', 'Kuta');
+insert into person(firstname, lastname)
+values ('Leszek', 'Kotulski');
 
-insert into PERSON (FIRSTNAME, LASTNAME)
+insert into person(firstname, lastname)
 values ('Student', 'Informatyk');
 
 COMMIT;
 
-SET TRANSACTION WRITE NAME 'add_zbigniew_stonoga';
+BEGIN;
+set transaction read write;
 
-insert into PERSON (FIRSTNAME, LASTNAME)
+insert into person (firstname, lastname)
 values ('Zbigniew', 'Stonoga');
 
 ROLLBACK;
@@ -225,11 +227,12 @@ ROLLBACK;
 -------------
 
 
-SET TRANSACTION READ WRITE NAME 'delete_student'
+BEGIN;
+set transaction read write;
 
-delete from PERSON
-where FIRSTNAME = 'Student'
-and LASTNAME = 'Informatyk';
+delete from person
+where firstname = 'Student'
+and   lastname = 'Informatyk';
 
 COMMIT;
 
@@ -239,10 +242,11 @@ COMMIT;
 -------------
 
 
-SET TRANSACTION READ ONLY NAME 'insert_zbigniew_kakol';
+BEGIN;
+set transaction read only;
 
-insert into PERSON (FIRSTNAME, LASTNAME)
-values ('Zbigniew', 'Kąkol');
+insert into person(firstname, lastname)
+values ('Zbigniew', 'Stonoga');
 
 COMMIT;
 
@@ -253,51 +257,41 @@ COMMIT;
 
 ```sql
 
-SET TRANSACTION READ WRITE NAME 'insert_zbigniew_kakol';
+ROLLBACK;
 
-insert into PERSON (FIRSTNAME, LASTNAME)
-values ('Zbigniew', 'Kąkol');
+BEGIN;
+set transaction read write;
+
+insert into person(firstname, lastname)
+values ('Aleksandra', 'Gorzkowska');
 
 COMMIT;
 
 -- Wynik:
--- 14,Zbigniew,Kąkol
+-- 14,Aleksandra,Gorzkowska
 
 -------------
 
 
-SET TRANSACTION READ WRITE NAME 'fix_person_id_&_update_person_id_sequence'
+BEGIN;
 
-set serveroutput on
+set transaction read write;
 
-begin
-    update PERSON
-    set PERSON_ID = 12
-    where FIRSTNAME = 'Zbigniew'
-    and LASTNAME = 'Kąkol';
+delete from person
+where firstname = 'Aleksandra'
+and   lastname = 'Gorzkowska';
 
-    dbms_output.PUT_LINE('OK');
-end;
+alter table person
+alter column person_id
+restart with 12;
 
--- Wynik:
--- 12,Zbigniew,Kąkol
-
-
-alter sequence S_PERSON_SEQ
-restart start with 13;
-
-COMMIT;
-
-
-SET TRANSACTION READ WRITE NAME 'add_leszek_kotulski'
-
-insert into PERSON(FIRSTNAME, LASTNAME)
-values ('Leszek', 'Kotulski');
+insert into person(firstname, lastname)
+values ('Aleksandra', 'Gorzkowska');
 
 COMMIT;
 
 -- Wynik:
--- 13,Leszek,Kotulski
+-- 12,Aleksandra,Gorzkowska
 
 ```
 
