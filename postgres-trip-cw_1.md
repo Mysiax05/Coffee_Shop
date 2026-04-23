@@ -1147,8 +1147,9 @@ Przy pomocy przedstawionego sposobu można też stworzyć sekwencję startując�
 ```sql
 person int
     generete always
-        as (increment by 3 start with 2137)
-            primary key,
+        as identity
+            (start with 2137 increment by 3)
+                primary key,
 ```
 
 Zamiast tworzyć specjalnie sekwencję tak jak to robiliśmy w OracleSQL PL/SQL. Aby zmienić numer kolejnego ID na 91 można to zrobić poprzez:
