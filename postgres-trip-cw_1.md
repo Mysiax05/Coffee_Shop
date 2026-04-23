@@ -306,49 +306,6 @@ W PostrgeSQL PL/pgSQL występuje autocommit, jednym ze sposobów aby commit nast
 
 W PostgreSQL PL/pgSQL domyślnie nie można nazwać transakcji tak jak to jest w OracleSQL PL/SQL i transakcji można użyć w bloku BEGIN; ... COMMIT;. W OracleSQL PL/SQL transakcja rozpoczyna się od set transaction ..., a nie BEGIN;.
 
-### 3 Tworzenie tabel i sekwencji
-
-W PostgreSQL PL/pgSQL sekwencję odpowiedzialną za ID, która jest PK można stworzyć przez np.:
-
-```sql
-person_id int
-    generated always
-        as identity
-            primary key,
-```
-
-Przy pomocy przedstawionego sposobu można też stworzyć sekwencję startującą od dowolnej liczby i zwiększającą się o dowolną liczbę np.:
-
-```sql
-person int
-    generete always
-        as (increment by 3 start with 2137)
-            primary key,
-```
-
-Zamiast tworzyć specjalnie sekwencję tak jak to robiliśmy w OracleSQL PL/SQL. Aby zmienić numer kolejnego ID na 91 można to zrobić poprzez:
-
-```sql
-alter table person
-    alter column person_id
-        restart with 91;
-```
-
-Oczywiście można też tworzyć sekwencje tak jak to robiliśmy w OracleSQL PL/SQL, tylko wtedy zamiast odwołania
-
-```sql
-alter table person
-    modify person_id int default s_person_seq.nextval;
-```
-
-robimy
-
-```sql
-alter table person
-    alter column person_id
-        set default nextval('s_person_seq');
-```
-
 ---
 
 # Zadanie 1 - widoki
@@ -1161,3 +1118,58 @@ Gdzie: PL/pgSQL function fn_check_trip_availability() line 18 at RAISE
 # Zadanie - podsumowanie
 
 Porównaj sposób programowania w systemie PostgreSQL PL/pgSQL ze znanym ci systemem/językiem OracleSQL PL/SQL.
+
+### 1 Tworzenie triggerów
+
+W PostgreSQL PL/pgSQL aby utworzyć trigger, trzeba stworzyć funkcję zwracającą trigger i osobno create trigger. W OracleSQL PL/SQL wszystko robi się wewnątrze trigger'a.
+
+### 2 Mutująca tablice i race condition
+
+W PostgreSQL PL/pgSQL nie występuje błąd mutującej tablicy, czyli ten, który był w OracleSQL PL/SQL. Problem race condition można rozwiązać poprzez zablokowanie możliwości nadpisywania innym użytkownikom tej samej wartości poprzez np.:
+
+```sql
+perform * from trip where trip_id = p_trip_id for update;
+```
+
+### 3 Tworzenie tabel i sekwencji
+
+W PostgreSQL PL/pgSQL sekwencję odpowiedzialną za ID, która jest PK można stworzyć przez np.:
+
+```sql
+person_id int
+    generated always
+        as identity
+            primary key,
+```
+
+Przy pomocy przedstawionego sposobu można też stworzyć sekwencję startującą od dowolnej liczby i zwiększającą się o dowolną liczbę np.:
+
+```sql
+person int
+    generete always
+        as (increment by 3 start with 2137)
+            primary key,
+```
+
+Zamiast tworzyć specjalnie sekwencję tak jak to robiliśmy w OracleSQL PL/SQL. Aby zmienić numer kolejnego ID na 91 można to zrobić poprzez:
+
+```sql
+alter table person
+    alter column person_id
+        restart with 91;
+```
+
+Oczywiście można też tworzyć sekwencje tak jak to robiliśmy w OracleSQL PL/SQL, tylko wtedy zamiast odwołania
+
+```sql
+alter table person
+    modify person_id int default s_person_seq.nextval;
+```
+
+robimy
+
+```sql
+alter table person
+    alter column person_id
+        set default nextval('s_person_seq');
+```
