@@ -409,7 +409,8 @@ create or replace view vw_trip as
 create or replace view vw_available_trip as
     select *
     from vw_trip
-    where remaining_places > 0;
+    where remaining_places > 0
+    and current_date < trip_date;
 
 
 -- TEST
@@ -449,7 +450,6 @@ select * from vw_available_trip;
 -- RESULT
 
 2,Poland,2026-07-01,Warsaw,10,8
-3,Poland,2026-01-01,Cracow,6,4
 4,Germany,2026-08-01,Berlin,7,5
 
 
@@ -523,7 +523,7 @@ returns void as $$
         if not exists(select 1
                       from vw_available_trip
                       where trip_id = p_trip_id) then
-            raise exception 'No free places available for trip with ID %!', p_trip_id;
+            raise exception 'Trip with ID % is no longer available!', p_trip_id;
         end if;
     end;
 $$ language plpgsql;
@@ -569,15 +569,16 @@ $$ language plpgsql;
 -- f_available_trips_to
 create or replace function f_available_trips_to
     (f_country varchar, f_date_from date, f_date_to date)
-returns setof vw_available_trip as $$
+returns setof vw_trip as $$
     begin
         if f_date_from > f_date_to then
             raise exception 'Start date (%) cannot be later than end date (%)!', f_date_from, f_date_to;
         end if;
 
         return query
-        select * from vw_available_trip
+        select * from vw_trip
         where country = f_country
+            and remaining_places > 0
             and trip_date between f_date_from and f_date_to;
     end;
 $$ language plpgsql;
@@ -653,191 +654,138 @@ Proponowany zestaw procedur można rozbudować wedle uznania/potrzeb
 
 ```sql
 
--- pomocnicze
-
--- p_person_exist
-
-create or replace procedure p_person_exist(p_id in person.person_id%type)
-as
-    tmp char(1);
-begin
-    select 1 into tmp from person p where p.person_id = p_id;
-exception
-    when NO_DATA_FOUND then
-        raise_application_error(-20001, 'There is no person with this ID!');
-end;
-
--- p_trip_exist
-create or replace procedure p_trip_exist(t_id in trip.trip_id%type)
-as
-    tmp char(1);
-begin
-    SELECT 1
-    INTO tmp
-    FROM trip t
-    WHERE t.trip_id = t_id;
-EXCEPTION
-    WHEN NO_DATA_FOUND
-    THEN RAISE_APPLICATION_ERROR(-20002, 'There is no trip with this ID!');
-end;
-
-
--- p_av_trip_exist
-
-create or replace procedure p_av_trip_exist(t_id in trip.trip_id%type)
-as
-    tmp char(1);
-begin
-    select 1 into tmp from vw_available_trip t where t.trip_id = t_id;
-exception
-    when NO_DATA_FOUND then
-        raise_application_error(-20002, 'There is no trip with this ID!');
-end;
-
-
--- p_reservation_exist
-
-create or replace procedure p_reservation_exist(r_id in reservation.reservation_id%type)
-as
-    tmp char(1);
-begin
-    select 1 into tmp from reservation r where r.reservation_id = r_id;
-exception
-    when NO_DATA_FOUND then
-        raise_application_error(-20003, 'There is no reservation with this ID!');
-end;
-
-
-----------------------------------
-
 -- p_add_reservation
+create or replace procedure p_add_reservation
+(p_trip_id int, p_person_id int)
+as $$
+    declare
+        v_reservation_id int;
+    begin
+        perform f_trip_exist(p_trip_id);
+        perform f_person_exist(p_person_id);
+        perform * from trip where trip_id = p_trip_id for update;
+        perform f_available_trip_exist(p_trip_id);
 
-create or replace procedure p_add_reservation(vtrip_id int, vperson_id int)
-as
-    vlog_date            date;
-    existing_reservation int;
-    vreservation_id      INT;
-begin
-    p_person_exist(vperson_id);
-    p_av_trip_exist(vtrip_id);
+        if exists (select 1 from reservation
+           where trip_id = p_trip_id
+            and person_id = p_person_id
+            and status != 'C')
+            then raise exception
+            'Person % already has an active reservation for trip %',
+            p_person_id, p_trip_id;
+        end if;
 
-    SELECT COUNT(*)
-    INTO existing_reservation
-    FROM reservation r
-    WHERE r.trip_id = vtrip_id
-      AND r.person_id = vperson_id
-      AND r.status IN ('N', 'P');
+        insert into reservation (trip_id, person_id, status)
+        values (p_trip_id, p_person_id, 'N')
+        returning reservation_id into v_reservation_id;
 
-    IF existing_reservation > 0 THEN
-        RAISE_APPLICATION_ERROR(-20004, 'This reservation already exists!');
-    END IF;
+        insert into log (reservation_id, log_date, status)
+        values (v_reservation_id, current_date, 'N');
 
-    insert into reservation(trip_id, person_id, status)
-    values (vtrip_id, vperson_id, 'N')
-    returning reservation_id into vreservation_id;
+        raise notice 'Success: Reservation % created for person %.',
+        v_reservation_id, p_person_id;
+    end;
+$$ language plpgsql;
 
+-- p_modify_reservation_status
+create or replace procedure p_modify_reservation_status
+(p_reservation_id int, p_status char(1))
+as $$
+    declare
+        v_old_status char(1);
+        v_trip_id int;
+    begin
+        perform f_reservation_exist(p_reservation_id);
 
-    vlog_date := trunc(sysdate);
-    insert into log(reservation_id, log_date, status)
-    values (vreservation_id, vlog_date, 'N');
-end;
+        select status, trip_id into v_old_status, v_trip_id
+        from reservation
+        where reservation_id = p_reservation_id
+        for update;
 
+        if v_old_status = p_status
+            then raise exception
+            'Reservation % already has status %!',
+            p_reservation_id, p_status;
+        end if;
 
---p_modify_reservation_status
+        if v_old_status = 'C' and p_status in ('N', 'P') then
+            perform * from trip where trip_id = v_trip_id for update;
+            perform f_available_trip_exist(v_trip_id);
+        end if;
 
-create or replace procedure p_modify_reservation_status(vreservation_id int, vstatus char)
-as
-    vold_status reservation.status%TYPE;
-    vtrip_id    reservation.trip_id%TYPE;
-    vexists     int;
-begin
-    p_reservation_exist(vreservation_id);
-    IF vstatus NOT IN ('N', 'P', 'C') THEN
-        RAISE_APPLICATION_ERROR(-20005, 'Invalid reservation status!');
-    END IF;
+        update reservation
+        set status = p_status
+        where reservation_id = p_reservation_id;
 
-    SELECT STATUS, TRIP_ID
-    into vold_status, vtrip_id
-    FROM RESERVATION
-    WHERE RESERVATION_ID = vreservation_id;
-
-
-    IF vold_status = 'C' AND (vstatus = 'P' OR vstatus = 'N') THEN
-        SELECT COUNT(*)
-        INTO vexists
-        FROM trip v
-        WHERE v.trip_id = vtrip_id;
-
-        IF vexists = 0 THEN
-            RAISE_APPLICATION_ERROR(-20006, 'No free places available for this trip!');
-        END IF;
-    END IF;
-
-    UPDATE reservation
-    SET status = vstatus
-    WHERE reservation_id = vreservation_id;
-
-    INSERT INTO log(reservation_id, log_date, status)
-    VALUES (vreservation_id, TRUNC(SYSDATE), vstatus);
-end;
-
+        insert into log (reservation_id, log_date, status)
+        values (p_reservation_id, current_date, p_status);
+    end;
+$$ language plpgsql;
 
 -- p_modify_max_no_places
+create or replace procedure p_modify_reservation_status
+(p_reservation_id int, p_status char(1))
+as $$
+    declare
+        v_old_status char(1);
+        v_trip_id int;
+    begin
+        perform f_reservation_exist(p_reservation_id);
 
-create or replace procedure p_modify_max_no_places
-(
-    p_trip_id in trip.trip_id%type,
-    p_max_no_places in trip.max_no_places%type
-)
-as
-    v_reserved_places int;
-begin
-    p_trip_exist(p_trip_id);
+        select status, trip_id into v_old_status, v_trip_id
+        from reservation
+        where reservation_id = p_reservation_id
+        for update;
 
-    SELECT COUNT(*)
-    INTO v_reserved_places
-    FROM reservation
-    WHERE trip_id = p_trip_id AND status IN ('P', 'N');
+        if v_old_status = p_status
+            then raise exception
+            'Reservation % already has status %!',
+            p_reservation_id, p_status;
+        end if;
 
-    if p_max_no_places < v_reserved_places
-    then RAISE_APPLICATION_ERROR(-20007, 'The number of places cannot be reduced!');
-    end if;
+        if v_old_status = 'C' and p_status in ('N', 'P') then
+            perform * from trip where trip_id = v_trip_id for update;
+            perform f_available_trip_exist(v_trip_id);
+        end if;
 
-    UPDATE trip
-    SET max_no_places = p_max_no_places
-    WHERE trip_id = p_trip_id;
-end;
+        update reservation
+        set status = p_status
+        where reservation_id = p_reservation_id;
 
+        insert into log (reservation_id, log_date, status)
+        values (p_reservation_id, current_date, p_status);
+
+        raise notice
+        'Success: Status of reservation % changed from % to %',
+        p_reservation_id, v_old_status, p_status;
+    end;
+$$ language plpgsql;
 
 -- TEST
 
-CALL p_add_reservation_4(1, 11);
-COMMIT;
-SELECT * FROM log ORDER BY log_date DESC, log_id DESC;
+call p_add_reservation(4, 2);
 
 --RESULT
 
-41,31,2026-04-14,N
+Success: Reservation 11 created for person 2.
 
 
 -- TEST
 
-CALL p_modify_reservation_status_4(2, 'C');
-COMMIT;
-SELECT * FROM log ORDER BY log_date DESC, log_id DESC;
+call p_modify_reservation_status(2, 'P');
 
 -- RESULT
 
-42,32,2026-04-14,N
+Success: Status of reservation 2 changed from N to P
 
 
 -- TEST
 
-DELETE FROM reservation WHERE reservation_id = 1;
+call p_modify_max_no_places(2, 9);
 
 -- RESULT
 
-Błąd! ORA-20008: Deleting reservations is forbidden!
+Success: Max places for trip 2 updated to 9.
 
 ```
 
