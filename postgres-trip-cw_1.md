@@ -1009,158 +1009,150 @@ Należy przygotować procedury: `p_add_reservation_5`, `p_modify_reservation_sta
 
 ```sql
 
--- t_before_insert_reservation
-
-create or replace trigger t_before_insert_reservation
-    before insert on reservation
-    for each row
+-- fn_check_trip_availability
+create or replace function fn_check_trip_availability()
+returns trigger as $$
 declare
-    vexists INT;
+    v_max_places int;
+    v_booked_places int;
 begin
-    if :new.status IN ('N', 'P') then
-        SELECT COUNT(*)
-        INTO vexists
-        FROM vw_available_trip v
-        WHERE v.trip_id = :new.trip_id;
+    select max_no_places into v_max_places
+    from trip
+    where trip_id = NEW.trip_id
+    for update;
 
-        if vexists = 0 then
-            RAISE_APPLICATION_ERROR(-20006, 'No free places available for this trip!');
+    select count(*) into v_booked_places
+    from reservation
+    where trip_id = NEW.trip_id
+    and status != 'C';
+
+    if NEW.status != 'C' then
+        if v_booked_places >= v_max_places
+            then raise exception
+            'No more places available for trip id %!',
+            NEW.trip_id;
         end if;
     end if;
 
+    return NEW;
 end;
+$$ language plpgsql;
 
+----------------
 
--- t_before_changing_reservation_status
+-- t_check_availability
+create trigger t_check_availability
+before insert or update on reservation
+for each row
+execute function fn_check_trip_availability();
 
-create or replace trigger t_before_changing_reservation_status
-    before update of status
-    on reservation
-    for each row
-declare
-    vexists INT;
-begin
-
-     IF :old.status = 'C' AND (:new.status = 'P' OR :new.status = 'N') THEN
-        SELECT COUNT(*)
-        INTO vexists
-        FROM vw_available_trip v
-        WHERE v.trip_id = :new.trip_id;
-
-        IF vexists = 0 THEN
-            RAISE_APPLICATION_ERROR(-20006, 'No free places available for this trip!');
-        END IF;
-    END IF;
-
-end;
-
-
--- t_check_max_places
-
-create or replace trigger t_check_max_places
-    before update of max_no_places on trip
-    for each row
-declare
-    v_reserved_places int;
-begin
-    SELECT COUNT(*)
-    INTO v_reserved_places
-    FROM reservation
-    WHERE trip_id = :NEW.trip_id AND status IN ('P', 'N');
-
-    if :NEW.max_no_places < v_reserved_places
-        then RAISE_APPLICATION_ERROR(-20007, 'The number of places cannot be reduced!');
-    end if;
-end;
-
-----------------------
-
-
--- p_modify_reservation_status_5
-
-CREATE OR REPLACE PROCEDURE p_modify_reservation_status_5(
-    vreservation_id INT,
-    vstatus CHAR
-) AS
-BEGIN
-    p_reservation_exist(vreservation_id);
-
-    UPDATE reservation
-    SET status = vstatus
-    WHERE reservation_id = vreservation_id;
-END;
-
--- p_modify_max_no_places5
-
-create or replace procedure p_modify_max_no_places5
-(
-    p_trip_id in trip.trip_id%type,
-    p_max_no_places in trip.max_no_places%type
-)
-as
-begin
-    p_trip_exist(p_trip_id);
-
-    UPDATE trip
-    SET max_no_places = p_max_no_places
-    WHERE trip_id = p_trip_id;
-end;
+----------------
 
 -- p_add_reservation_5
+create or replace procedure p_add_reservation_5
+(p_trip_id int, p_person_id int)
+as $$
+    declare
+        v_reservation_id int;
+    begin
+        perform f_trip_exist(p_trip_id);
+        perform f_person_exist(p_person_id);
 
-create or replace procedure p_add_reservation_5(
-    vtrip_id INT,
-    vperson_id INT
-)
-as
-    existing_reservation INT;
+        insert into reservation (trip_id, person_id, status)
+        values (p_trip_id, p_person_id, 'N')
+        returning reservation_id into v_reservation_id;
+
+        raise notice 'Success: Reservation % created for person %.',
+        v_reservation_id, p_person_id;
+    end;
+$$ language plpgsql;
+
+-- p_modify_reservation_status_5
+create or replace procedure p_modify_reservation_status_5
+(p_reservation_id int, p_status char(1))
+as $$
+    declare
+        v_old_status char(1);
+    begin
+        perform f_reservation_exist(p_reservation_id);
+
+        select status into v_old_status
+        from reservation
+        where reservation_id = p_reservation_id
+        for update;
+
+        update reservation
+        set status = p_status
+        where reservation_id = p_reservation_id;
+
+        raise notice 'Success: Status of reservation % changed from % to %',
+        p_reservation_id, v_old_status, p_status;
+    end;
+$$ language plpgsql;
+
+-- p_modify_max_no_places_5
+create or replace procedure p_modify_max_no_places_5
+(p_trip_id int, p_max_no_places int)
+as $$
+declare
+    v_booked int;
 begin
-    p_person_exist(vperson_id);
-    p_trip_exist(vtrip_id);
+    perform f_trip_exist(p_trip_id);
+    perform * from trip where trip_id = p_trip_id for update;
 
-    SELECT COUNT(*)
-    INTO existing_reservation
-    FROM reservation r
-    WHERE r.trip_id = vtrip_id
-      AND r.person_id = vperson_id
-      AND r.status IN ('N', 'P');
+    select count(*) into v_booked
+    from reservation where trip_id = p_trip_id and status != 'C';
 
-    if existing_reservation > 0 then
-        RAISE_APPLICATION_ERROR(-20004, 'This reservation already exists!');
+    if p_max_no_places < v_booked
+        then raise exception
+        'Cannot reduce limit to %! % people are already booked.',
+        p_max_no_places, v_booked;
     end if;
 
-    INSERT INTO reservation(trip_id, person_id, status)
-    VALUES (vtrip_id, vperson_id, 'N');
+    update trip
+    set max_no_places = p_max_no_places
+    where trip_id = p_trip_id;
+
+    raise notice 'Success: Max places for trip % updated to %.',
+    p_trip_id, p_max_no_places;
 end;
+$$ language plpgsql;
 
 -- TEST
 
-CALL p_add_reservation_5(1, 13);
+call p_add_reservation_5(2, 6);
 
 -- RESULT
 
-Zakończono pomyślnie
+Success: Reservation 13 created for person 6.
 
 -- TEST
 
-CALL p_modify_reservation_status_5(4, 'P');
+call p_modify_reservation_status_5(11, 'P');
 
 -- RESULT
 
-ORA-04091: tabela RESERVATION ulega mutacji, wyzwalacz/funkcja może tego nie widzieć
-[2026-04-14 23:42:25] 	ORA-06512: przy "T_BEFORE_CHANGING_RESERVATION_STATUS", linia 6
-[2026-04-14 23:42:25] 	ORA-04088: błąd w trakcie wykonywania wyzwalacza 'T_BEFORE_CHANGING_RESERVATION_STATUS'
-[2026-04-14 23:42:25] 	ORA-06512: przy "P_MODIFY_RESERVATION_STATUS_5", linia 8
+Success: Status of reservation 11 changed from N to P
+
+6,11,2026-04-23,P
 
 
 -- TEST
 
-CALL p_modify_max_no_places5(2, 60);
-COMMIT;
+call p_modify_max_no_places_5(2, 21);
 
 -- RESULT
 
-Zakończono pomyślnie
+Success: Max places for trip 2 updated to 21.
+
+-- TEST
+
+call p_add_reservation_5(1, 2);
+
+-- RESULT
+
+[P0001] ERROR: No more places available for trip id 1!
+Gdzie: PL/pgSQL function fn_check_trip_availability() line 18 at RAISE
 
 ```
 
