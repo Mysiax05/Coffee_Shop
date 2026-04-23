@@ -719,45 +719,40 @@ as $$
 
         insert into log (reservation_id, log_date, status)
         values (p_reservation_id, current_date, p_status);
+
+        raise notice 'Success: Status of reservation % changed from % to %',
+        p_reservation_id, v_old_status, p_status;
     end;
 $$ language plpgsql;
 
 -- p_modify_max_no_places
-create or replace procedure p_modify_reservation_status
-(p_reservation_id int, p_status char(1))
+create or replace procedure p_modify_max_no_places
+(p_trip_id int, p_max_no_places int)
 as $$
     declare
-        v_old_status char(1);
-        v_trip_id int;
+        v_currently_booked int;
     begin
-        perform f_reservation_exist(p_reservation_id);
+        perform f_trip_exist(p_trip_id);
 
-        select status, trip_id into v_old_status, v_trip_id
+        perform * from trip where trip_id = p_trip_id for update;
+
+        select count(*) into v_currently_booked
         from reservation
-        where reservation_id = p_reservation_id
-        for update;
+        where trip_id = p_trip_id
+        and status != 'C';
 
-        if v_old_status = p_status
+        if v_currently_booked > p_max_no_places
             then raise exception
-            'Reservation % already has status %!',
-            p_reservation_id, p_status;
+            'Cannot reduce limit to %! There are already % active reservations.',
+            p_max_no_places, v_currently_booked;
         end if;
 
-        if v_old_status = 'C' and p_status in ('N', 'P') then
-            perform * from trip where trip_id = v_trip_id for update;
-            perform f_available_trip_exist(v_trip_id);
-        end if;
+        update trip
+        set max_no_places = p_max_no_places
+        where trip_id = p_trip_id;
 
-        update reservation
-        set status = p_status
-        where reservation_id = p_reservation_id;
-
-        insert into log (reservation_id, log_date, status)
-        values (p_reservation_id, current_date, p_status);
-
-        raise notice
-        'Success: Status of reservation % changed from % to %',
-        p_reservation_id, v_old_status, p_status;
+        raise notice 'Success: Max places for trip % updated to %.',
+        p_trip_id, p_max_no_places;
     end;
 $$ language plpgsql;
 
@@ -809,171 +804,183 @@ Oczywiście po wprowadzeniu tej zmiany należy "uaktualnić" procedury modyfikuj
 > UWAGA
 > Należy stworzyć nowe wersje tych procedur (dodając do nazwy dopisek 4 - od numeru zadania). Poprzednie wersje procedur należy pozostawić w celu umożliwienia weryfikacji ich poprawności
 
-Należy przygotować procedury: `p_add_reservation_4`, `p_modify_reservation_status_4` , `p_modify_reservation_4`
+Należy przygotować procedury: `p_add_reservation_4`, `p_modify_reservation_status_4` , `p_modify_max_no_places_4`
 
 # Zadanie 4 - rozwiązanie
 
 ```sql
 
--- t_add_reservation
-
-create or replace trigger t_add_reservation
-    after insert
-    on reservation
-    for each row
+-- fn_log_reservation_change
+create or replace function fn_log_reservation_change()
+returns trigger as $$
 begin
-    INSERT INTO log(reservation_id, log_date, status)
-    VALUES (:NEW.reservation_id, TRUNC(SYSDATE), :NEW.status);
-end;
-
-
--- t_changed_reservation_status
-
-create or replace trigger t_changed_reservation_status
-    after update of status
-    on reservation
-    for each row
-begin
-    if :old.status != :new.status then
-        INSERT INTO log(reservation_id, log_date, status)
-        VALUES (:NEW.reservation_id, TRUNC(SYSDATE), :NEW.status);
+    if (TG_OP = 'INSERT') or
+       (TG_OP = 'UPDATE' and
+        OLD.status != NEW.status)
+        then insert into log (reservation_id, log_date, status)
+        values (NEW.reservation_id, current_date, NEW.status);
     end if;
-end;
 
+    return NEW;
+end;
+$$ language plpgsql;
+
+-- fn_prevent_reservation_delete
+create or replace function fn_prevent_reservation_delete()
+returns trigger as $$
+begin
+    raise exception
+    'Deleting reservations is forbidden!';
+end;
+$$ language plpgsql;
+
+------------------
+
+-- t_reservation_log
+create trigger t_reservation_log
+after insert or update on reservation
+for each row
+execute function fn_log_reservation_change();
 
 -- t_prevent_reservation_delete
+create trigger t_prevent_reservation_delete
+before delete on reservation
+for each row
+execute function fn_prevent_reservation_delete();
 
-create or replace trigger t_prevent_reservation_delete
-    before delete
-    on reservation
-    for each row
-begin
-    RAISE_APPLICATION_ERROR(-20008, 'Deleting reservations is forbidden!');
-end;
-
-
-----------------------
+------------------
 
 -- p_add_reservation_4
+create or replace procedure p_add_reservation_4
+(p_trip_id int, p_person_id int)
+as $$
+    begin
+        perform f_trip_exist(p_trip_id);
+        perform f_person_exist(p_person_id);
+        perform * from trip where trip_id = p_trip_id for update;
+        perform f_available_trip_exist(p_trip_id);
 
-create or replace procedure p_add_reservation_4(vtrip_id int, vperson_id int)
-as
-    existing_reservation int;
-    vreservation_id      INT;
-begin
-    p_person_exist(vperson_id);
-    p_av_trip_exist(vtrip_id);
+        if exists (select 1 from reservation
+           where trip_id = p_trip_id
+            and person_id = p_person_id
+            and status != 'C')
+            then raise exception
+            'Person % already has an active reservation for trip %',
+            p_person_id, p_trip_id;
+        end if;
 
-    SELECT COUNT(*)
-    INTO existing_reservation
-    FROM reservation r
-    WHERE r.trip_id = vtrip_id
-      AND r.person_id = vperson_id
-      AND r.status IN ('N', 'P');
+        insert into reservation (trip_id, person_id, status)
+        values (p_trip_id, p_person_id, 'N');
 
-    IF existing_reservation > 0 THEN
-        RAISE_APPLICATION_ERROR(-20004, 'This reservation already exists!');
-    END IF;
+        raise notice 'Success: Reservation % created for person %.',
+        v_reservation_id, p_person_id;
+    end;
+$$ language plpgsql;
 
-    insert into reservation(trip_id, person_id, status)
-    values (vtrip_id, vperson_id, 'N')
-    returning reservation_id into vreservation_id;
-end;
+-- p_modify_reservation_status_4
+create or replace procedure p_modify_reservation_status_4
+(p_reservation_id int, p_status char(1))
+as $$
+    declare
+        v_old_status char(1);
+        v_trip_id int;
+    begin
+        perform f_reservation_exist(p_reservation_id);
 
+        select status, trip_id into v_old_status, v_trip_id
+        from reservation
+        where reservation_id = p_reservation_id
+        for update;
 
--- p_modify_reservation_status4
+        if v_old_status = p_status
+            then raise exception
+            'Reservation % already has status %!',
+            p_reservation_id, p_status;
+        end if;
 
-create or replace procedure p_modify_reservation_status_4(vreservation_id int, vstatus char)
-as
-    vold_status reservation.status%TYPE;
-    vtrip_id    reservation.trip_id%TYPE;
-    vexists     int;
-begin
-    p_reservation_exist(vreservation_id);
-    IF vstatus NOT IN ('N', 'P', 'C') THEN
-        RAISE_APPLICATION_ERROR(-20005, 'Invalid reservation status!');
-    END IF;
+        if v_old_status = 'C' and p_status in ('N', 'P') then
+            perform * from trip where trip_id = v_trip_id for update;
+            perform f_available_trip_exist(v_trip_id);
+        end if;
 
-    SELECT STATUS, TRIP_ID
-    into vold_status, vtrip_id
-    FROM RESERVATION
-    WHERE RESERVATION_ID = vreservation_id;
+        update reservation
+        set status = p_status
+        where reservation_id = p_reservation_id;
 
+        raise notice 'Success: Status of reservation % changed from % to %',
+        p_reservation_id, v_old_status, p_status;
+    end;
+$$ language plpgsql;
 
-    IF vold_status = 'C' AND (vstatus = 'P' OR vstatus = 'N') THEN
-        SELECT COUNT(*)
-        INTO vexists
-        FROM trip v
-        WHERE v.trip_id = vtrip_id;
+-- p_modify_max_no_places_4
+create or replace procedure p_modify_max_no_places_4
+(p_trip_id int, p_max_no_places int)
+as $$
+    declare
+        v_currently_booked int;
+    begin
+        perform f_trip_exist(p_trip_id);
+        perform * from trip where trip_id = p_trip_id for update;
 
-        IF vexists = 0 THEN
-            RAISE_APPLICATION_ERROR(-20006, 'No free places available for this trip!');
-        END IF;
-    END IF;
+        select count(*) into v_currently_booked
+        from reservation
+        where trip_id = p_trip_id
+        and status != 'C';
 
-    UPDATE reservation
-    SET status = vstatus
-    WHERE reservation_id = vreservation_id;
-end;
+        if v_currently_booked > p_max_no_places
+            then raise exception
+            'Cannot reduce limit to %! There are already % active reservations.',
+            p_max_no_places, v_currently_booked;
+        end if;
 
+        update trip
+        set max_no_places = p_max_no_places
+        where trip_id = p_trip_id;
 
--- p_modify_max_no_places4
-
-create or replace procedure p_modify_max_no_places4
-(
-    p_trip_id in trip.trip_id%type,
-    p_max_no_places in trip.max_no_places%type
-)
-as
-    v_reserved_places int;
-begin
-    p_trip_exist(p_trip_id);
-
-    SELECT COUNT(*)
-    INTO v_reserved_places
-    FROM reservation
-    WHERE trip_id = p_trip_id AND status IN ('P', 'N');
-
-    if p_max_no_places < v_reserved_places
-    then RAISE_APPLICATION_ERROR(-20007, 'The number of places cannot be reduced!');
-    end if;
-
-    UPDATE trip
-    SET max_no_places = p_max_no_places
-    WHERE trip_id = p_trip_id;
-end;
-
--- TEST
-
-CALL p_add_reservation_4(3, 12);
-COMMIT;
-SELECT * FROM log ORDER BY log_date DESC, log_id DESC;
-
--- RESULT
-
-43,33,2026-04-14,N
+        raise notice 'Success: Max places for trip % updated to %.',
+        p_trip_id, p_max_no_places;
+    end;
+$$ language plpgsql;
 
 
 -- TEST
 
-CALL p_modify_reservation_status_4(7, 'C');
-COMMIT;
-SELECT * FROM log ORDER BY log_date DESC, log_id DESC;
+call p_add_reservation_4(2, 1);
 
 -- RESULT
 
-44,7,2026-04-14,C
+Success: Reservation 12 created for person 1.
+
+3,12,2026-04-23,N
 
 
 -- TEST
 
-DELETE FROM reservation WHERE reservation_id = 1;
+call p_modify_reservation_status_4(12, 'P');
 
 -- RESULT
 
-ORA-20008: Deleting reservations is forbidden!
-ORA-06512: przy "T_PREVENT_RESERVATION_DELETE", linia 2
-ORA-04088: błąd w trakcie wykonywania wyzwalacza 'T_PREVENT_RESERVATION_DELETE'
+Success: Status of reservation 12 changed from N to P
+
+4,12,2026-04-23,P
+
+
+-- TEST
+
+call p_modify_max_no_places_4(2, 12);
+
+-- RESULT
+
+Success: Max places for trip 2 updated to 12.
+
+-- TEST
+
+delete from reservation where reservation_id = 1;
+
+-- RESULT
+
+[P0001] ERROR: Deleting reservations is forbidden!
+Gdzie: PL/pgSQL function fn_prevent_reservation_delete() line 3 at RAISE
 
 ```
 
