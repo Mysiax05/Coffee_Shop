@@ -2873,6 +2873,118 @@ TotalOrderValue : ...
 
 
 ```js
---  ...
+db.orders.aggregate([
+        {
+            $lookup: {
+                from: "customers",
+                localField: "CustomerID",
+                foreignField: "CustomerID",
+                as: "Customer"
+                }
+            },
+        {
+            $unwind: "$Customer"
+            },
+        {
+            $lookup: {
+                from: "employees",
+                localField: "EmployeeID",
+                foreignField: "EmployeeID",
+                as: "Employee"
+                }
+            },
+        {
+            $unwind: "$Employee"
+            },
+        {
+            $lookup: {
+                from: "shippers",
+                localField: "ShipVia",
+                foreignField: "ShipperID",
+                as: "Shipper"
+                }
+            },
+        {
+            $unwind: "$Shipper"
+            },
+        {
+            $lookup: {
+                from: "orderdetails_tmp",
+                localField: "OrderID",
+                foreignField: "OrderID",
+                as: "OrderDetails"
+                }
+            },
+        {
+            $project: {
+                _id: 0,
+
+                OrderID: 1,
+                Freight: 1,
+                ShipName: 1,
+                ShipAddress: 1,
+                ShipCity: 1,
+                ShipRegion: 1,
+                ShipPostalCode: 1,
+                ShipCountry: 1,
+
+                Dates: {
+                    OrderDate: "$OrderDate",
+                    RequiredDate: "$RequiredDate",
+                    ShippedDate: "$ShippedDate"
+                    },
+
+                Customer: {
+                    CustomerID: "$Customer.CustomerID",
+                    CompanyName: "$Customer.CompanyName",
+                    ContactName: "$Customer.ContactName",
+                    Country: "$Customer.Country"
+                    },
+
+                Employee: {
+                    EmployeeID: "$Employee.EmployeeID",
+                    FirstName: "$Employee.FirstName",
+                    LastName: "$Employee.LastName"
+                    },
+
+                Shipper: {
+                    ShipperID: "$Shipper.ShipperID",
+                    CompanyName: "$Shipper.CompanyName"
+                    },
+
+                OrderDetails: {
+                    $map: {
+                        input: "$OrderDetails",
+                        as: "detail",
+                        in: {
+                            ProductID: "$$detail.ProductID",
+                            UnitPrice: "$$detail.UnitPrice",
+                            Quantity: "$$detail.Quantity",
+                            Discount: "$$detail.Discount"
+                            }
+                        }
+                    },
+
+                TotalOrderValue: {
+                    $sum: {
+                        $map: {
+                            input: "$OrderDetails",
+                            as: "detail",
+                            in: {
+                                $multiply: [
+                                    "$$detail.UnitPrice",
+                                    "$$detail.Quantity",
+                                    { $subtract: [1, "$$detail.Discount"] }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+        {
+            $out: "orders_tmp"
+            }
+        ]);
 ```
 
