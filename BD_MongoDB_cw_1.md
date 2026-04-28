@@ -509,6 +509,17 @@ db.student.find({ student_id: 1 });
 
 ```js
 //create
+db.student.insertOne({
+  student_id: 3,
+  firstname: "Alice",
+  lastname: "Smith",
+  age: 22,
+});
+
+//read
+db.student.find({ student_id: 1 });
+
+//update
 db.student.updateOne({ student_id: 1 }, [
   {
     $set: {
@@ -517,17 +528,8 @@ db.student.updateOne({ student_id: 1 }, [
   },
 ]);
 
-//read
-db.student.find({ student_id: 1 });
-//update
-db.student.updateOne({ student_id: 1 }, [
-  {
-    $set: {
-      firstname: "Michael",
-    },
-  },
-]);
 //delete
+db.student.deleteOne({ student_id: 3 });
 ```
 
 ---
@@ -1222,13 +1224,13 @@ db.<collection>.aggregate(
 
 [
 
-   {stage 1},
+   {stage 1},
 
-   {stage 2},
+   {stage 2},
 
-    …..
+    ...
 
-   {stage N}
+   {stage N}
 
 ]
 
@@ -2809,15 +2811,17 @@ db.orders.aggregate([
   {
     $project: {
       _id: 0,
-
       OrderID: 1,
       Freight: 1,
-      ShipName: 1,
-      ShipAddress: 1,
-      ShipCity: 1,
-      ShipRegion: 1,
-      ShipPostalCode: 1,
-      ShipCountry: 1,
+
+      Shipment: {
+        ShipName: "$ShipName",
+        ShipAddress: "$ShipAddress",
+        ShipCity: "$ShipCity",
+        ShipRegion: "$ShipRegion",
+        ShipPostalCode: "$ShipPostalCode",
+        ShipCountry: "$ShipCountry",
+      },
 
       Dates: {
         OrderDate: "$OrderDate",
@@ -2848,7 +2852,7 @@ db.orders.aggregate([
           input: "$OrderDetails",
           as: "detail",
           in: {
-            ProductID: "$$detail.ProductID",
+            ProductID: "$$detail.product.ProductID",
             UnitPrice: "$$detail.UnitPrice",
             Quantity: "$$detail.Quantity",
             Discount: "$$detail.Discount",
@@ -2861,13 +2865,7 @@ db.orders.aggregate([
           $map: {
             input: "$OrderDetails",
             as: "detail",
-            in: {
-              $multiply: [
-                "$$detail.UnitPrice",
-                "$$detail.Quantity",
-                { $subtract: [1, "$$detail.Discount"] },
-              ],
-            },
+            in: "$$detail.TotalValue",
           },
         },
       },
