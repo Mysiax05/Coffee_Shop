@@ -527,6 +527,7 @@ db.student.updateOne({ student_id: 1 }, [
     },
   },
 ]);
+//delete
 ```
 
 ---
@@ -1177,7 +1178,35 @@ db.employees.find({
 > przykłady, kod, zrzuty ekranów, komentarz ...
 
 ```js
---  ...
+SELECT FirstName, LastName, Salary
+    FROM employees;
+db.employees.find(
+    {},
+    {FirstName:1, LastName:1, Salary:1}
+    );
+
+    SELECT *
+    FROM employees
+    WHERE Salary >= 3000 AND Salary <= 10000;
+db.employees.find(
+    {$and : [
+        {Salary : {$gte : 3000}},
+        {Salary : {$lte : 10000}}
+        ]}
+    );
+
+    SELECT FirstName, LastName, HireDate
+    FROM employees
+    WHERE HireDate BETWEEN '1992-01-01' AND '1994-12-31';
+db.employees.find(
+    {
+        HireDate: {
+            $gte: ISODate("1992-01-01T00:00:00Z"),
+            $lte: ISODate("1994-12-31T00:00:00Z")
+            }
+        },
+    {_id:0,FirstName:1, LastName:1, Salary:1}
+    );
 ```
 
 ---
@@ -1583,7 +1612,101 @@ db.em_by_country_title.find();
 > przykłady, kod, zrzuty ekranów, komentarz ...
 
 ```js
---  ...
+SELECT FirstName, LastName, Salary
+    FROM employees
+    WHERE Address.Country = 'USA'
+    ORDER BY Salary DESC;
+
+db.employees.find(
+    {"Address.Country" : "USA"},
+    {_id:0, FirstName:1, LastName:1, Salary:1},
+    ).sort({Salary : -1})
+
+    SELECT Address.Country, AVG(Salary) AS avg_salary
+    FROM employees
+    GROUP BY Address.Country
+    ORDER BY avg_salary DESC;
+
+db.employees.aggregate([
+    {$group :
+        {
+            _id : "$Address.Country",
+            avg : {$avg : "$Salary"}
+        }
+    },
+    {$project :
+        {
+         _id : 0,
+        Country : "$_id",
+        avg: 1
+
+        }
+    },
+    {$sort : {avg : -1}}
+    ]);
+
+SELECT TitleOfCourtesy, AVG(Salary) AS avg_salary
+FROM employees
+WHERE Address.Country = 'USA'
+GROUP BY TitleOfCourtesy
+ORDER BY avg_salary DESC;
+db.employees.aggregate([
+    {
+        $match:
+        {
+        "Address.Country" : "USA"
+        }
+    },
+    {
+        $group:
+        {
+            "_id" : "$TitleOfCourtesy",
+            avg : {$avg : "$Salary"}
+        }
+    },
+    {
+        $sort: {avg : -1}
+    }
+])
+
+
+SELECT Address.Country, COUNT(*) AS cnt
+FROM employees
+GROUP BY Address.Country
+HAVING COUNT(*) >= 5
+ORDER BY cnt DESC;
+
+db.employees.aggregate([ //having to po prostu match umieszczony po group
+    {$group:
+        {
+            "_id" : "$Address.Country",
+            cnt : {$sum : 1}
+        }
+    },
+    {$match:
+        {cnt : {$gte : 5}}
+    },
+    {$sort : {cnt : -1}}
+]);
+
+SELECT Address.Country, MIN(Salary) AS min_salary, MAX(Salary) AS max_salary
+FROM employees
+GROUP BY Address.Country
+ORDER BY max_salary DESC;
+
+db.employees.aggregate([
+    {$group :
+        {
+            "_id" : "$Address.Country",
+            max : {$max : "$Salary"},
+            min : {$min : "$Salary"}
+        }
+    },
+    {$sort :
+        {max : -1}
+    }
+])
+
 ```
 
 ---
@@ -2641,5 +2764,117 @@ TotalOrderValue : ...
 > przykłady, kod, zrzuty ekranów, komentarz ...
 
 ```js
---  ...
+db.orders.aggregate([
+  {
+    $lookup: {
+      from: "customers",
+      localField: "CustomerID",
+      foreignField: "CustomerID",
+      as: "Customer",
+    },
+  },
+  {
+    $unwind: "$Customer",
+  },
+  {
+    $lookup: {
+      from: "employees",
+      localField: "EmployeeID",
+      foreignField: "EmployeeID",
+      as: "Employee",
+    },
+  },
+  {
+    $unwind: "$Employee",
+  },
+  {
+    $lookup: {
+      from: "shippers",
+      localField: "ShipVia",
+      foreignField: "ShipperID",
+      as: "Shipper",
+    },
+  },
+  {
+    $unwind: "$Shipper",
+  },
+  {
+    $lookup: {
+      from: "orderdetails_tmp",
+      localField: "OrderID",
+      foreignField: "OrderID",
+      as: "OrderDetails",
+    },
+  },
+  {
+    $project: {
+      _id: 0,
+
+      OrderID: 1,
+      Freight: 1,
+      ShipName: 1,
+      ShipAddress: 1,
+      ShipCity: 1,
+      ShipRegion: 1,
+      ShipPostalCode: 1,
+      ShipCountry: 1,
+
+      Dates: {
+        OrderDate: "$OrderDate",
+        RequiredDate: "$RequiredDate",
+        ShippedDate: "$ShippedDate",
+      },
+
+      Customer: {
+        CustomerID: "$Customer.CustomerID",
+        CompanyName: "$Customer.CompanyName",
+        ContactName: "$Customer.ContactName",
+        Country: "$Customer.Country",
+      },
+
+      Employee: {
+        EmployeeID: "$Employee.EmployeeID",
+        FirstName: "$Employee.FirstName",
+        LastName: "$Employee.LastName",
+      },
+
+      Shipper: {
+        ShipperID: "$Shipper.ShipperID",
+        CompanyName: "$Shipper.CompanyName",
+      },
+
+      OrderDetails: {
+        $map: {
+          input: "$OrderDetails",
+          as: "detail",
+          in: {
+            ProductID: "$$detail.ProductID",
+            UnitPrice: "$$detail.UnitPrice",
+            Quantity: "$$detail.Quantity",
+            Discount: "$$detail.Discount",
+          },
+        },
+      },
+
+      TotalOrderValue: {
+        $sum: {
+          $map: {
+            input: "$OrderDetails",
+            as: "detail",
+            in: {
+              $multiply: [
+                "$$detail.UnitPrice",
+                "$$detail.Quantity",
+                { $subtract: [1, "$$detail.Discount"] },
+              ],
+            },
+          },
+        },
+      },
+    },
+  },
+  {
+    $out: "orders_tmp",
+  },
+]);
 ```
