@@ -1,0 +1,85 @@
+Table Categories {
+  CategoryID int [pk, increment]
+  CategoryName varchar(100) [not null]
+  ParentCategoryID int [null, ref: > Categories.CategoryID]
+}
+
+Table Products {
+  ProductID int [pk, increment]
+  CategoryID int [ref: > Categories.CategoryID]
+  Name varchar(200) [not null]
+  Price decimal(10,2) [not null]
+  Stock int [not null]
+  IsActive boolean [not null, default: true]
+  Attributes jsonb
+}
+
+Table Customers {
+  CustomerID int [pk, increment]
+  FirstName varchar(100) [not null]
+  LastName varchar(100) [not null]
+  Email varchar(200) [not null, unique]
+  Phone varchar(20) [null]
+  PasswordHash varchar(200) [null]
+  CreatedAt timestamp [not null]
+}
+
+Table Addresses {
+  AddressID int [pk, increment]
+  CustomerID int [ref: > Customers.CustomerID]
+  Label varchar(100) [null]
+  Street varchar(100) [not null]
+  City varchar(100) [not null]
+  PostalCode varchar(20) [not null]
+  Country varchar(100) [not null, default: 'Poland']
+  IsDefault boolean [not null, default: false]
+}
+
+Table Orders {
+  OrderID int [pk, increment]
+  CustomerID int [ref: > Customers.CustomerID]
+  AddressID int [ref: > Addresses.AddressID]
+  ShipperID int [null, ref: > Shippers.ShipperID]
+  Status varchar(50) [not null, default: 'pending']
+  OrderDate timestamp [not null, default: `now()`]
+  ShipDate timestamp [null]
+  CreatedAt timestamp [not null, default: `now()`]
+}
+
+Table OrderDetails {
+  OrderID int [ref: > Orders.OrderID]
+  ProductID int [ref: > Products.ProductID]
+  UnitPrice decimal(10,2) [not null]
+  Quantity int [not null]
+  indexes {
+    (OrderID, ProductID) [pk]
+  }
+}
+
+Table PaymentMethods {
+  PaymentMethodID int [pk, increment]
+  CustomerID int [ref: > Customers.CustomerID]
+  Provider varchar(50) [not null]
+  Type varchar(50) [not null]
+  ProviderRef varchar(200) [not null]
+  CreatedAt timestamp [not null, default: `now()`]
+}
+
+Table Payments {
+  PaymentID int [pk, increment]
+  OrderID int [ref: > Orders.OrderID]
+  PaymentMethodID int [null, ref: > PaymentMethods.PaymentMethodID]
+  Amount decimal(10,2) [not null]
+  Status varchar(50) [not null, default: 'pending']
+  ProviderRef varchar(200) [null]
+  CreatedAt timestamp [not null, default: `now()`]
+  UpdatedAt timestamp [not null, default: `now()`]
+}
+
+Table Shippers {
+  ShipperID int [pk, increment]
+  CompanyName varchar(200) [not null]
+  Phone varchar(20) [null]
+  Address varchar(300) [null]
+  EmailAddress varchar(200) [null]
+}
