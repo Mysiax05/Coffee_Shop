@@ -21,7 +21,7 @@ Table Customers {
   Email varchar(200) [not null, unique]
   Phone varchar(20) [null]
   PasswordHash varchar(200) [null]
-  CreatedAt timestamp [not null]
+  CreatedAt timestamp [not null, default: `now()`]
 }
 
 Table Addresses {
@@ -33,17 +33,16 @@ Table Addresses {
   PostalCode varchar(20) [not null]
   Country varchar(100) [not null, default: 'Poland']
   IsDefault boolean [not null, default: false]
+  IsActive boolean [not null, default: true]
 }
 
 Table Orders {
   OrderID int [pk, increment]
   CustomerID int [ref: > Customers.CustomerID]
   AddressID int [ref: > Addresses.AddressID]
-  ShipperID int [null, ref: > Shippers.ShipperID]
   Status varchar(50) [not null, default: 'pending']
   OrderDate timestamp [not null, default: `now()`]
   ShipDate timestamp [null]
-  CreatedAt timestamp [not null, default: `now()`]
 }
 
 Table OrderDetails {
@@ -58,11 +57,9 @@ Table OrderDetails {
 
 Table PaymentMethods {
   PaymentMethodID int [pk, increment]
-  CustomerID int [ref: > Customers.CustomerID]
   Provider varchar(50) [not null]
   Type varchar(50) [not null]
-  ProviderRef varchar(200) [not null]
-  CreatedAt timestamp [not null, default: `now()`]
+  IsActive boolean [not null, default: true]
 }
 
 Table Payments {
@@ -71,15 +68,6 @@ Table Payments {
   PaymentMethodID int [null, ref: > PaymentMethods.PaymentMethodID]
   Amount decimal(10,2) [not null]
   Status varchar(50) [not null, default: 'pending']
-  ProviderRef varchar(200) [null]
   CreatedAt timestamp [not null, default: `now()`]
-  UpdatedAt timestamp [not null, default: `now()`]
-}
-
-Table Shippers {
-  ShipperID int [pk, increment]
-  CompanyName varchar(200) [not null]
-  Phone varchar(20) [null]
-  Address varchar(300) [null]
-  EmailAddress varchar(200) [null]
+  PaidAt timestamp [null]
 }
