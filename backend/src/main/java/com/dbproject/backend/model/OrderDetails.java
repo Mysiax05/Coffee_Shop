@@ -32,12 +32,12 @@ public class OrderDetails {
     @EmbeddedId
     private Id id;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @MapsId("orderId")
     @JoinColumn(name = "orderid", nullable = false)
     private Order order;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @MapsId("productId")
     @JoinColumn(name = "productid", nullable = false)
     private Product product;

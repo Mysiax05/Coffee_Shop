@@ -22,11 +22,11 @@ public class Payment {
     @Column(name = "paymentid")
     private Integer paymentId;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "orderid", nullable = false)
     private Order order;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "paymentmethodid", nullable = false)
     private PaymentMethod paymentMethod;
 

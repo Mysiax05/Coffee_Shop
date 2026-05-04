@@ -52,7 +52,7 @@ public class Customer {
     //security will be done later, for now just string
     @Size(max = 200)
     @Column(name = "passwordhash", length = 200)
-    private String password;
+    private String passwordHash;
 
     @Generated(event = EventType.INSERT)
     @Column(name = "createdat", nullable = false, insertable = false, updatable = false)

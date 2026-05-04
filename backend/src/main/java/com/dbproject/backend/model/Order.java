@@ -20,11 +20,11 @@ public class Order {
     @Column(name = "orderid")
     private Integer orderId;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "customerid", nullable = false)
     private Customer customer;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "addressid", nullable = false)
     private Address address;
 

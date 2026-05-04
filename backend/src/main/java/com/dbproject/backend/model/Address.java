@@ -17,7 +17,7 @@ public class Address {
     @Column(name = "addressid")
     private Integer addressId;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "customerid", nullable = false)
     private Customer customer;
 
