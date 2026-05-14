@@ -9,11 +9,10 @@ out/
 .vscode/
 *.code-workspace
 
-# Spring Boot / Gradle
-backend/.gradle/
-backend/build/
-backend/gradle/wrapper/gradle-wrapper.jar
-!backend/gradle/wrapper/gradle-wrapper.properties
+# Spring Boot / Maven
+backend/target/
+backend/.mvn/wrapper/maven-wrapper.jar
+!backend/.mvn/wrapper/maven-wrapper.properties
 
 # React / Node
 frontend/node_modules/
