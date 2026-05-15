@@ -1,24 +1,3 @@
-CREATE OR REPLACE FUNCTION f_report_best_sellers(number_of_best_sellers int)
-RETURNS TABLE (
-    product_id int,
-    name varchar,
-    total_sold int,
-    revenue numeric
-    ) AS $$
-BEGIN
-    RETURN QUERY
-    SELECT p.productid,
-           p.name,
-           sum(od.quantity)::int AS total_sold,
-           sum(od.unitprice * od.quantity) AS revenue
-        FROM products p
-        INNER JOIN orderdetails od ON od.productid = p.productid
-        GROUP BY p.productid, p.name
-        ORDER BY total_sold DESC
-        LIMIT number_of_best_sellers;
-END;
-$$ LANGUAGE plpgsql;
-
 CREATE OR REPLACE FUNCTION f_get_category_subtree(f_category_id int)
 RETURNS TABLE (categoryid int)
 AS $$
@@ -66,7 +45,32 @@ BEGIN
         and (min_price is null or p.price >= min_price)
         and (max_price is null or p.price <= max_price)
         and (f_category_id is null or p.categoryid in (
-            SELECT categoryid from f_get_category_subtree(f_category_id)))
+            SELECT sub.categoryid FROM f_get_category_subtree(f_category_id) as sub))
         and (f_attributes_filter is null or p.attributes @> f_attributes_filter);
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION f_report_best_sellers(
+    number_of_best_sellers int default null,
+    f_category_id int default null)
+RETURNS TABLE (
+    product_id int,
+    name varchar,
+    total_sold int,
+    revenue numeric
+    ) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT p.productid,
+           p.name,
+           sum(od.quantity)::int AS total_sold,
+           sum(od.unitprice * od.quantity) AS revenue
+        FROM products p
+        INNER JOIN orderdetails od ON od.productid = p.productid
+        WHERE (f_category_id is null or p.categoryid in (
+            SELECT sub.categoryid FROM f_get_category_subtree(f_category_id) as sub))
+        GROUP BY p.productid, p.name
+        ORDER BY total_sold DESC
+        LIMIT number_of_best_sellers;
 END;
 $$ LANGUAGE plpgsql;
