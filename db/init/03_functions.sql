@@ -74,3 +74,43 @@ BEGIN
         LIMIT number_of_best_sellers;
 END;
 $$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION t_f_validate_leaf_category()
+RETURNS TRIGGER AS $$
+BEGIN
+    if exists(select 1 from categories where parentcategoryid = NEW.categoryid) then
+        raise exception 'Category with ID % is not a leaf category', NEW.categoryid;
+    end if;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION t_f_validate_product_active()
+RETURNS TRIGGER AS $$
+BEGIN
+    if exists(select 1 from products where productid = NEW.productid and isactive = false) then
+        raise exception 'Product with ID % is not active', NEW.productid;
+    end if;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION t_f_validate_payment_method_active()
+RETURNS TRIGGER AS $$
+BEGIN
+    if exists(select 1 from paymentmethods where paymentmethodid = NEW.paymentmethodid and isactive = false) then
+        raise exception 'Payment method with ID % is not active', NEW.paymentmethodid;
+    end if;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION t_f_set_paid_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    if NEW.status = 'completed' and OLD.status != 'completed' then
+        NEW.paidat = now();
+    end if;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
