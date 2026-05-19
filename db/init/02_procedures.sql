@@ -25,6 +25,39 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE PROCEDURE p_check_order_exists(f_order_id int)
+AS $$
+BEGIN
+    if not exists(select 1 from orders where orderid = f_order_id) then
+        raise exception 'Order with ID % does not exist', f_order_id;
+    end if;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE PROCEDURE p_check_customers_order_exists(f_customer_id int,f_order_id int)
+AS $$
+BEGIN
+    if not exists(select 1
+                  from orders
+                  where orderid = f_order_id
+                  and customerid = f_customer_id) then
+        raise exception 'Customer % has no order with ID %', f_customer_id, f_order_id;
+    end if;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE PROCEDURE p_check_orders_status_pending(f_order_id int)
+AS $$
+BEGIN
+    if not exists(select 1
+                  from orders
+                  where orderid = f_order_id
+                  and status = 'pending') then
+        raise exception 'Order with ID % has different status than pending', f_order_id;
+    end if;
+END;
+$$ LANGUAGE plpgsql;
+
 CREATE OR REPLACE PROCEDURE p_add_category(
     f_category_name varchar,
     f_parent_category_id int default null)
@@ -129,5 +162,50 @@ BEGIN
     UPDATE products
     SET categoryid = f_category_id
     WHERE productid = f_product_id;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE PROCEDURE p_pay_order(
+    f_customer_id int,
+    f_order_id int,
+    f_payment_method_id int)
+AS $$
+DECLARE
+    v_item record;
+    v_amount decimal;
+BEGIN
+    CALL p_check_order_exists(f_order_id);
+    CALL p_check_customers_order_exists(f_customer_id, f_order_id);
+    CALL p_check_orders_status_pending(f_order_id);
+    CALL p_check_payment_method_exists(f_payment_method_id);
+
+    FOR v_item IN
+        SELECT productid, quantity
+        FROM orderdetails
+        WHERE orderid = f_order_id
+        FOR UPDATE
+    LOOP
+        CALL p_update_stock(v_item.productid, -v_item.quantity);
+    END LOOP;
+
+    UPDATE orders
+    SET status = 'paid'
+    WHERE orderid = f_order_id;
+
+    SELECT SUM(quantity * unitprice) INTO v_amount
+    FROM orderdetails
+    WHERE orderid = f_order_id;
+
+    INSERT INTO payments(orderid,
+                         paymentmethodid,
+                         amount,
+                         status,
+                         paidat)
+    VALUES (f_order_id,
+            f_payment_method_id,
+            v_amount,
+            'completed',
+            now());
+
 END;
 $$ LANGUAGE plpgsql;
