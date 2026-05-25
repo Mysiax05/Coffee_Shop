@@ -75,6 +75,28 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION f_report_revenue_by_category()
+RETURNS TABLE (
+    category_id int,
+    category_name varchar,
+    revenue decimal
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        c.categoryid,
+        c.categoryname,
+        coalesce(sum(od.unitprice * od.quantity), 0) AS revenue
+    FROM categories c
+    LEFT JOIN products p ON p.categoryid IN (
+        SELECT categoryid FROM f_get_category_subtree(c.categoryid)
+    )
+    LEFT JOIN orderdetails od ON od.productid = p.productid
+    GROUP BY c.categoryid, c.categoryname
+    ORDER BY c.categoryid;
+END;
+$$ LANGUAGE plpgsql;
+
 CREATE OR REPLACE FUNCTION t_f_validate_leaf_category()
 RETURNS TRIGGER AS $$
 BEGIN
