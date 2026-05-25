@@ -75,6 +75,69 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION f_report_revenue_by_category()
+RETURNS TABLE (
+    category_id int,
+    category_name varchar,
+    revenue decimal
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        c.categoryid,
+        c.categoryname,
+        coalesce(sum(od.unitprice * od.quantity), 0) AS revenue
+    FROM categories c
+    LEFT JOIN products p ON p.categoryid IN (
+        SELECT categoryid FROM f_get_category_subtree(c.categoryid)
+    )
+    LEFT JOIN orderdetails od ON od.productid = p.productid
+    GROUP BY c.categoryid, c.categoryname
+    ORDER BY c.categoryid;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION t_f_validate_leaf_category()
+RETURNS TRIGGER AS $$
+BEGIN
+    if exists(select 1 from categories where parentcategoryid = NEW.categoryid) then
+        raise exception 'Category with ID % is not a leaf category', NEW.categoryid;
+    end if;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION t_f_validate_product_active()
+RETURNS TRIGGER AS $$
+BEGIN
+    if exists(select 1 from products where productid = NEW.productid and isactive = false) then
+        raise exception 'Product with ID % is not active', NEW.productid;
+    end if;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION t_f_validate_payment_method_active()
+RETURNS TRIGGER AS $$
+BEGIN
+    if exists(select 1 from paymentmethods where paymentmethodid = NEW.paymentmethodid and isactive = false) then
+        raise exception 'Payment method with ID % is not active', NEW.paymentmethodid;
+    end if;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION t_f_set_paid_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    if NEW.status = 'completed' and OLD.status != 'completed' then
+        NEW.paidat = now();
+    end if;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+
 create or replace function
 f_get_customer_expenses(f_customer_id int) returns numeric as $$
     begin
@@ -90,8 +153,6 @@ f_get_customer_expenses(f_customer_id int) returns numeric as $$
     end;
 $$ language plpgsql;
 
-
-
 create or replace function
 f_get_customer_orders(f_customer_id int) returns setof orders as $$
     begin
@@ -103,8 +164,6 @@ f_get_customer_orders(f_customer_id int) returns setof orders as $$
     end;
     $$ language plpgsql;
 
-
-
 create or replace function
 f_get_customer_addresses(f_customer_id int) returns setof addresses as $$
     begin
@@ -114,8 +173,6 @@ f_get_customer_addresses(f_customer_id int) returns setof addresses as $$
         where customerid=f_customer_id);
     end;
     $$ language plpgsql;
-
-
 
 create or replace function
     f_get_order_total(f_order_id int) returns numeric as $$
@@ -128,8 +185,6 @@ create or replace function
         );
     end;
     $$ language plpgsql;
-
-
 
 create or replace function
     f_get_order_products(f_order_id int) returns table(
