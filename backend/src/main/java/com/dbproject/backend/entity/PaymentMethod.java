@@ -1,4 +1,4 @@
-package com.dbproject.backend.model;
+package com.dbproject.backend.entity;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
