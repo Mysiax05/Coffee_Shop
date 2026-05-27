@@ -67,7 +67,9 @@ BEGIN
            sum(od.unitprice * od.quantity) AS revenue
         FROM products p
         INNER JOIN orderdetails od ON od.productid = p.productid
-        WHERE (f_category_id is null or p.categoryid in (
+        INNER JOIN orders o ON o.orderid = od.orderid
+        WHERE o.status IN ('paid', 'delivered', 'shipped', 'packed')
+        AND (f_category_id is null or p.categoryid in (
             SELECT sub.categoryid FROM f_get_category_subtree(f_category_id) as sub))
         GROUP BY p.productid, p.name
         ORDER BY total_sold DESC
@@ -92,6 +94,9 @@ BEGIN
         SELECT categoryid FROM f_get_category_subtree(c.categoryid)
     )
     LEFT JOIN orderdetails od ON od.productid = p.productid
+    LEFT JOIN orders o ON o.orderid = od.orderid
+    WHERE (o.status IN ('paid', 'delivered', 'shipped', 'packed')
+    OR o.status IS NULL)
     GROUP BY c.categoryid, c.categoryname
     ORDER BY c.categoryid;
 END;
