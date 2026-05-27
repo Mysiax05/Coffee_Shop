@@ -207,7 +207,7 @@ returns trigger as $$
     declare
         v_item record;
     begin
-        if old.status!='cancelled' and new.status='cancelled' then
+        if old.status='packed' and new.status='cancelled' then
             for v_item in (
                 select od.productid, od.quantity
                 from orderdetails od
@@ -241,7 +241,7 @@ returns trigger as $$
 create or replace function t_f_validate_address_active()
 returns trigger as $$
     begin
-        if exists(select 1 from vw_active_addresses where new.addressid=addressid) then
+        if not exists(select 1 from vw_active_addresses where new.addressid=addressid) then
             raise exception 'Product with ID % is not active', new.addressid;
         end if;
         return new;

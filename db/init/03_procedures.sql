@@ -490,4 +490,29 @@ create or replace procedure p_create_order(
     end;
     $$ language plpgsql;
 
+create or replace procedure p_cancel_order(
+    p_customerid int,
+    p_orderid int
+) as $$
+begin
+    call p_check_order_exists(p_orderid);
+    call p_check_customers_order_exists(p_customerid, p_orderid);
 
+    update orders
+    set status = 'cancelled'
+    where orderid = p_orderid;
+end;
+$$ language plpgsql;
+
+
+create or replace procedure p_change_order_status(
+    p_orderid int,
+    p_newstatus varchar
+) as $$
+begin
+    call p_check_order_exists(p_orderid);
+    update orders
+    set status = p_newstatus
+    where orderid = p_orderid;
+end;
+$$ language plpgsql;
