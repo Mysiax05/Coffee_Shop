@@ -226,7 +226,7 @@ BEGIN
     END LOOP;
 
     UPDATE orders
-    SET status = 'paid'
+    SET status = 'packed'
     WHERE orderid = f_order_id;
 
     SELECT SUM(quantity * unitprice) INTO v_amount
