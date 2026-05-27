@@ -1,3 +1,12 @@
+CREATE OR REPLACE PROCEDURE p_check_product_exists(f_product_id int)
+AS $$
+BEGIN
+    if not exists(select 1 from products where productid = f_product_id) then
+        raise exception 'Product with ID % does not exist', f_product_id;
+    end if;
+END;
+$$ LANGUAGE plpgsql;
+
 create or replace procedure p_check_customer_exists(f_customer_id int) as $$
 begin
     if not exists (select 1 from customers where customerid = f_customer_id) then
@@ -13,17 +22,6 @@ begin
     end if;
 end;
 $$ language plpgsql;
-
-
-CREATE OR REPLACE PROCEDURE p_check_product_exists(f_product_id int)
-AS $$
-BEGIN
-    if not exists(select 1 from products where productid = f_product_id) then
-        raise exception 'Product with ID % does not exist', f_product_id;
-    end if;
-END;
-$$ LANGUAGE plpgsql;
-
 CREATE OR REPLACE PROCEDURE p_check_category_exists(f_category_id int)
 AS $$
 BEGIN
