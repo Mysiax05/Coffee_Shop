@@ -247,7 +247,7 @@ create or replace function t_f_validate_address_active()
 returns trigger as $$
     begin
         if not exists(select 1 from vw_active_addresses where new.addressid=addressid) then
-            raise exception 'Product with ID % is not active', new.addressid;
+            raise exception 'Address with ID % is not active', new.addressid;
         end if;
         return new;
     end;
