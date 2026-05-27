@@ -1,4 +1,4 @@
-package com.dbproject.backend.controller;
+package com.dbproject.backend.web;
 
 import com.dbproject.backend.dto.ProductDto;
 import com.dbproject.backend.entity.Product;
@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 import java.util.List;
-import java.util.Optional;
 
 @Controller
 @RequestMapping("/api/products")
