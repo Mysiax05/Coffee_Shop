@@ -127,15 +127,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION t_f_set_paid_at()
-RETURNS TRIGGER AS $$
-BEGIN
-    if NEW.status = 'completed' and OLD.status != 'completed' then
-        NEW.paidat = now();
-    end if;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
 
 
 create or replace function
@@ -207,5 +198,52 @@ create or replace function
         inner join products p on p.productid = od.productid
         where od.orderid = f_order_id
         );
+    end;
+    $$ language plpgsql;
+	
+	
+create or replace function t_f_restore_stock_on_cancel()
+returns trigger as $$
+    declare
+        v_item record;
+    begin
+        if old.status!='cancelled' and new.status='cancelled' then
+            for v_item in (
+                select od.productid, od.quantity
+                from orderdetails od
+                where od.orderid = old.orderid
+            ) loop
+                call p_update_stock(v_item.productid, v_item.quantity);
+                end loop;
+        end if;
+        return new;
+    end;
+    $$ language plpgsql;
+	
+	
+create or replace function t_f_validate_order_status_transition()
+returns trigger as $$
+    begin
+        if old.status = new.status then
+            return new;
+        end if;
+        if (old.status='cancelled') or
+           (old.status='delivered') or
+           (old.status='pending' and new.status='delivered') or
+           (old.status='packed' and new.status='pending')
+           then
+            raise exception 'Invalid order status transition from % to %', old.status, new.status;
+        end if;
+        return new;
+    end;
+    $$ language plpgsql;
+	
+create or replace function t_f_validate_address_active()
+returns trigger as $$
+    begin
+        if exists(select 1 from vw_active_addresses where new.addressid=addressid) then
+            raise exception 'Product with ID % is not active', new.addressid;
+        end if;
+        return new;
     end;
     $$ language plpgsql;
