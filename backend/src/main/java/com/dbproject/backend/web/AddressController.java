@@ -1,6 +1,8 @@
 package com.dbproject.backend.web;
 
+import com.dbproject.backend.dto.AddAddressRequest;
 import com.dbproject.backend.entity.Address;
+import com.dbproject.backend.entity.Customer;
 import com.dbproject.backend.service.AddressService;
 
 import jakarta.validation.Valid;
@@ -18,9 +20,8 @@ public class AddressController {
     }
 
     @PostMapping
-    public ResponseEntity<Void> addAddress(@RequestBody @Valid Address address){
-        addressService.addAddress(address);
-        return ResponseEntity.ok().build();
-
+    public ResponseEntity<Void> addAddress(@RequestBody AddAddressRequest request) {
+        addressService.addAddress(request);
+        return ResponseEntity.status(201).build();
     }
 }
