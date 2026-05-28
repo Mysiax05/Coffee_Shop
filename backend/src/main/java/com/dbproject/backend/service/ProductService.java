@@ -15,8 +15,12 @@ public class ProductService {
     @Autowired
     private ProductRepository productRepository;
 
-    public List<Product> getAll() {
-        return productRepository.findAll();
+    public List<ProductDto> getAll() {
+        return productRepository
+                .findAll()
+                .stream()
+                .map(this::toDto)
+                .toList();
     }
 
     public ProductDto findById(Integer productId) {

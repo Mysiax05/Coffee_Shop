@@ -20,7 +20,7 @@ public class PaymentController {
     private PaymentService paymentService;
 
     @GetMapping
-    public ResponseEntity<List<Payment>> findAll() {
+    public ResponseEntity<List<PaymentDto>> findAll() {
         return ResponseEntity.ok(paymentService.getAll());
     }
 

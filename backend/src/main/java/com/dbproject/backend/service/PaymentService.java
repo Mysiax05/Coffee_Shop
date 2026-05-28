@@ -15,8 +15,12 @@ public class PaymentService {
     @Autowired
     private PaymentRepository paymentRepository;
 
-    public List<Payment> getAll() {
-        return paymentRepository.findAll();
+    public List<PaymentDto> getAll() {
+        return paymentRepository
+                .findAll()
+                .stream()
+                .map(this::toDto)
+                .toList();
     }
 
     public PaymentDto findById(Integer paymentId) {
