@@ -132,8 +132,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-
-
 create or replace function
 f_get_customer_expenses(f_customer_id int) returns numeric as $$
     begin
@@ -206,7 +204,6 @@ create or replace function
     end;
     $$ language plpgsql;
 	
-	
 create or replace function t_f_restore_stock_on_cancel()
 returns trigger as $$
     declare
@@ -225,7 +222,6 @@ returns trigger as $$
     end;
     $$ language plpgsql;
 	
-	
 create or replace function t_f_validate_order_status_transition()
 returns trigger as $$
     begin
@@ -242,7 +238,7 @@ returns trigger as $$
         return new;
     end;
     $$ language plpgsql;
-	
+
 create or replace function t_f_validate_address_active()
 returns trigger as $$
     begin
