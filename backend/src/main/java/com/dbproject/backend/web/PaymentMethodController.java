@@ -1,6 +1,6 @@
 package com.dbproject.backend.web;
 
-import com.dbproject.backend.dto.PaymentMethodDto;
+import com.dbproject.backend.entity.PaymentMethod;
 import com.dbproject.backend.service.PaymentMethodService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -19,12 +19,12 @@ public class PaymentMethodController {
     private PaymentMethodService paymentMethodService;
 
     @GetMapping
-    public ResponseEntity<List<PaymentMethodDto>> findAll() {
+    public ResponseEntity<List<PaymentMethod>> findAll() {
         return ResponseEntity.ok(paymentMethodService.getAll());
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<PaymentMethodDto> findById(@PathVariable Integer id) {
+    public ResponseEntity<PaymentMethod> findById(@PathVariable Integer id) {
         return ResponseEntity.ok(paymentMethodService.findById(id));
     }
 }
