@@ -415,8 +415,6 @@ begin
 end;
 $$ language plpgsql;
 
-
-
 create or replace procedure p_create_order(
     p_customerid integer,
     p_addressid integer,
@@ -473,7 +471,7 @@ create or replace procedure p_change_order_status(
 begin
 
     call p_check_order_exists(p_orderid);
-	if p_newstatus not in ('pending', 'paid', 'cancelled', 'shipped', ...) then
+	if p_newstatus not in ('pending', 'packed', 'cancelled', 'delivered') then
 		raise exception 'Invalid status: %', p_newstatus;
 	end if;
     update orders
