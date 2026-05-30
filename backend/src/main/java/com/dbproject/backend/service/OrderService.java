@@ -46,6 +46,13 @@ public class OrderService {
 
 
 
+    public void payOrder(Integer customerId, Integer orderId, Integer paymentMethodId) {
+        orderRepository.payOrder(customerId,orderId,paymentMethodId);
+    }
+
+    public void cancelOrder(Integer customerId, Integer orderId){
+        orderRepository.cancelOrder(customerId,orderId);
+    }
 
 
     private OrderDto toDTO(Order order) {
@@ -69,4 +76,6 @@ public class OrderService {
 
         return dto;
     }
+
+
 }

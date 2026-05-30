@@ -247,3 +247,17 @@ returns trigger as $$
         return new;
     end;
     $$ language plpgsql;
+	
+create or replace function f_get_customer_payments(f_customerid integer) returns setof payments
+as $$
+    begin
+    call p_check_customer_exists(f_customerid);
+
+    return query
+        select p.*
+        from payments p
+        inner join orders o on o.orderid = p.orderid
+        and o.customerid = f_customerid;
+
+    end;
+    $$ language plpgsql;

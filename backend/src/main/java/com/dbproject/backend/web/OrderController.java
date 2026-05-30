@@ -2,6 +2,7 @@ package com.dbproject.backend.web;
 
 import com.dbproject.backend.dto.CreateOrderRequest;
 import com.dbproject.backend.dto.OrderDto;
+import com.dbproject.backend.dto.PayOrderRequest;
 import com.dbproject.backend.entity.Customer;
 import com.dbproject.backend.entity.Order;
 import com.dbproject.backend.service.OrderService;
@@ -32,5 +33,21 @@ public class OrderController {
     @GetMapping("/customer/{customerId}")
     public ResponseEntity<List<OrderDto>> findByCustomerId(@PathVariable Integer customerId){
         return ResponseEntity.ok(orderService.findByCustomerId(customerId));
+    }
+
+    @PostMapping("/{orderId}/pay")
+    public ResponseEntity<Void> payOrder(
+            @PathVariable Integer orderId,
+            @RequestBody PayOrderRequest request) {
+        orderService.payOrder(request.getCustomerId(), orderId, request.getPaymentMethodId());
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/{orderId}/cancel")
+    public ResponseEntity<Void> cancelOrder(
+            @PathVariable Integer orderId,
+            @RequestParam Integer customerId) {
+        orderService.cancelOrder(customerId, orderId);
+        return ResponseEntity.ok().build();
     }
 }

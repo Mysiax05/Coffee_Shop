@@ -26,4 +26,22 @@ public interface OrderRepository extends JpaRepository<Order, Integer> {
 
     @Query(value = "SELECT * FROM f_get_customer_orders(:customerId)", nativeQuery = true)
     List<Order> findOrdersOfCustomer(@Param("customerId") Integer customerId);
+
+    @Modifying
+    @Transactional
+    @Query(value = "CALL p_pay_order(:customerId, :orderId, :paymentMethodId)", nativeQuery = true)
+    void payOrder(
+            @Param("customerId") Integer customerId,
+            @Param("orderId") Integer orderId,
+            @Param("paymentMethodId") Integer paymentMethodId
+    );
+
+
+    @Modifying
+    @Transactional
+    @Query(value = "CALL p_cancel_order(:customerId, :orderId)", nativeQuery = true)
+    void cancelOrder(
+            @Param("customerId") Integer customerId,
+            @Param("orderId") Integer orderId
+    );
 }
