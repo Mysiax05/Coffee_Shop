@@ -37,6 +37,7 @@ public class PaymentService {
         dto.setAmount(payment.getAmount());
         dto.setCreatedAt(payment.getCreatedAt());
         dto.setPaidAt(payment.getPaidAt());
+        dto.setStatus(payment.getStatus());
 
         dto.setPaymentMethod(new PaymentDto.PaymentMethodDto());
         dto.getPaymentMethod().setPaymentMethodId(payment.getPaymentMethod().getPaymentMethodId());
