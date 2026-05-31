@@ -26,7 +26,7 @@ public class ProductService {
     public ProductDto findById(Integer productId) {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "Product with ID % does not exist"));
+                        String.format("Product with ID %d was not found", productId)));
         return toDto(product);
     }
 

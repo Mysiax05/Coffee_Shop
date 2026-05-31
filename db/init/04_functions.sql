@@ -67,7 +67,9 @@ BEGIN
            sum(od.unitprice * od.quantity) AS revenue
         FROM products p
         INNER JOIN orderdetails od ON od.productid = p.productid
-        WHERE (f_category_id is null or p.categoryid in (
+        INNER JOIN orders o ON o.orderid = od.orderid
+        WHERE o.status IN ('pending', 'delivered', 'canceled', 'packed')
+        AND (f_category_id is null or p.categoryid in (
             SELECT sub.categoryid FROM f_get_category_subtree(f_category_id) as sub))
         GROUP BY p.productid, p.name
         ORDER BY total_sold DESC
@@ -92,6 +94,9 @@ BEGIN
         SELECT categoryid FROM f_get_category_subtree(c.categoryid)
     )
     LEFT JOIN orderdetails od ON od.productid = p.productid
+    LEFT JOIN orders o ON o.orderid = od.orderid
+    WHERE (o.status IN ('pending', 'delivered', 'canceled', 'packed')
+    OR o.status IS NULL)
     GROUP BY c.categoryid, c.categoryname
     ORDER BY c.categoryid;
 END;
@@ -126,8 +131,6 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
-
-
 
 create or replace function
 f_get_customer_expenses(f_customer_id int) returns numeric as $$
@@ -201,7 +204,6 @@ create or replace function
     end;
     $$ language plpgsql;
 	
-	
 create or replace function t_f_restore_stock_on_cancel()
 returns trigger as $$
     declare
@@ -220,7 +222,6 @@ returns trigger as $$
     end;
     $$ language plpgsql;
 	
-	
 create or replace function t_f_validate_order_status_transition()
 returns trigger as $$
     begin
@@ -237,12 +238,12 @@ returns trigger as $$
         return new;
     end;
     $$ language plpgsql;
-	
+
 create or replace function t_f_validate_address_active()
 returns trigger as $$
     begin
         if not exists(select 1 from vw_active_addresses where new.addressid=addressid) then
-            raise exception 'Product with ID % is not active', new.addressid;
+            raise exception 'Address with ID % is not active', new.addressid;
         end if;
         return new;
     end;

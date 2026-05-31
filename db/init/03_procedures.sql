@@ -15,13 +15,22 @@ begin
 end;
 $$ language plpgsql;
 
-create or replace procedure p_check_order_exists(f_order_id int) as $$
+create or replace procedure p_check_address_exists(p_address_id int) as $$
 begin
-    if not exists (select 1 from orders where orderid = f_order_id) then
-        raise exception 'Order with ID % does not exist', f_order_id;
+    if not exists (select 1 from addresses where addressid = p_address_id) then
+        raise exception 'Address with ID % does not exist', p_address_id;
     end if;
 end;
 $$ language plpgsql;
+
+create or replace procedure p_check_address_belongs_to_customer(p_addressid int, p_customerid int) as $$
+begin
+    if not exists (select 1 from addresses where addressid = p_addressid and customerid = p_customerid) then
+        raise exception 'Address with ID % does not belong to Customer with ID %', p_addressid,p_customerid;
+    end if;
+end;
+$$ language plpgsql;
+
 CREATE OR REPLACE PROCEDURE p_check_category_exists(f_category_id int)
 AS $$
 BEGIN
@@ -49,7 +58,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE PROCEDURE p_check_customers_order_exists(f_customer_id int,f_order_id int)
+CREATE OR REPLACE PROCEDURE p_check_customers_order_exists(f_customer_id int, f_order_id int)
 AS $$
 BEGIN
     if not exists(select 1
@@ -156,19 +165,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
---CREATE OR REPLACE PROCEDURE p_update_stock(f_product_id int, quantity int)
---AS $$
---BEGIN
---    CALL p_check_product_exists(f_product_id);
---    IF (SELECT stock + quantity FROM products WHERE productid = f_product_id) < 0 THEN
---        RAISE EXCEPTION 'Stock cannot be negative';
---    END IF;
---    UPDATE products
---    SET stock = stock + quantity
---    WHERE productid = f_product_id;
---END;
---$$ LANGUAGE plpgsql;
-
 create procedure p_update_stock(
     in f_product_id integer,
     in quantity integer
@@ -196,8 +192,6 @@ begin
 end;
 $$;
 
-
-
 CREATE OR REPLACE PROCEDURE p_set_category(f_product_id int, f_category_id int)
 AS $$
 BEGIN
@@ -218,7 +212,6 @@ DECLARE
     v_item record;
     v_amount decimal;
 BEGIN
-    CALL p_check_order_exists(f_order_id);
     CALL p_check_customers_order_exists(f_customer_id, f_order_id);
     CALL p_check_orders_status_pending(f_order_id);
     CALL p_check_payment_method_exists(f_payment_method_id);
@@ -254,17 +247,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-----
-
-create or replace procedure p_check_address_exists(p_address_id int) as $$
-begin
-    if not exists (select 1 from addresses where addressid = p_address_id) then
-        raise exception 'Address with ID % does not exist', p_address_id;
-    end if;
-end;
-$$ language plpgsql;
-
-
 create or replace procedure p_register_customer(
     p_firstname varchar,
     p_lastname varchar,
@@ -287,7 +269,6 @@ begin
     end if;
 end;
 $$ language plpgsql;
-
 
 create or replace procedure p_add_address(
     p_customerid integer,
@@ -328,9 +309,6 @@ begin
 end;
 $$ language plpgsql;
 
-
-
-
 create or replace procedure p_set_default_address(
     p_customerid integer,
     p_addressid integer
@@ -339,14 +317,7 @@ create or replace procedure p_set_default_address(
 
         call p_check_address_exists(p_addressid);
         call p_check_customer_exists(p_customerid);
-
-if not exists (
-        select 1 from addresses
-        where addressid = p_addressid
-        and customerid = p_customerid
-    ) then
-        raise exception 'Address % does not belong to customer %', p_addressid, p_customerid;
-    end if;
+        call p_check_address_belongs_to_customer(p_addressid, p_customerid);
 
         if exists (
         select 1 from addresses
@@ -367,10 +338,6 @@ if not exists (
     end;
     $$ language plpgsql;
 
-
-
-
-
 create or replace procedure p_deactivate_address(
     p_customerid integer,
     p_addressid integer)
@@ -380,14 +347,7 @@ declare
 begin
     call p_check_address_exists(p_addressid);
     call p_check_customer_exists(p_customerid);
-
-    if not exists (
-        select 1 from addresses
-        where addressid = p_addressid
-        and customerid = p_customerid
-    ) then
-        raise exception 'Address % does not belong to customer %', p_addressid, p_customerid;
-    end if;
+    call p_check_address_belongs_to_customer(p_adderssid, p_customerid);
 
     select isdefault into v_was_default
     from addresses where addressid = p_addressid;
@@ -408,8 +368,6 @@ begin
 end;
 $$ language plpgsql;
 
-
-
 create or replace procedure p_change_password(
     p_customerid integer,
     p_newpasswordhash varchar
@@ -421,7 +379,6 @@ begin
     where customerid = p_customerid;
 end;
 $$ language plpgsql;
-
 
 create or replace procedure p_change_email(
     p_customerid integer,
@@ -437,7 +394,6 @@ begin
     where customerid = p_customerid;
 end;
 $$ language plpgsql;
-
 
 create or replace procedure p_change_phone(
     p_customerid integer,
@@ -459,43 +415,47 @@ begin
 end;
 $$ language plpgsql;
 
-
-
 create or replace procedure p_create_order(
     p_customerid integer,
     p_addressid integer,
     p_items jsonb
 ) as $$
-    declare
-        v_orderid int;
-        v_item jsonb;
-    begin
-        call p_check_customer_exists(p_customerid);
-        call p_check_address_exists(p_addressid);
-        call p_check_address_belongs_to_customer(p_addressid,p_customerid);
+declare
+    v_orderid int;
+    v_item jsonb;
+    v_productid int;
+begin
+    call p_check_customer_exists(p_customerid);
+    call p_check_address_exists(p_addressid);
+    call p_check_address_belongs_to_customer(p_addressid, p_customerid);
 
-        insert into orders(customerid, addressid)
-        values(p_customerid,p_addressid)
-        returning orderid into v_orderid;
+    insert into orders(customerid, addressid)
+    values(p_customerid, p_addressid)
+    returning orderid into v_orderid;
 
-        for v_item in select * from jsonb_array_elements(p_items)
-        loop
-            insert into orderdetails(orderid, productid, unitprice, quantity)
-            values (v_orderid,
-                    (v_item->>'productId')::int,
-                    (select price from products where productid = (v_item->>'productId')::int),
-                    (v_item->>'quantity')::int
-                   );
-            end loop;
-    end;
-    $$ language plpgsql;
+    for v_item in select * from jsonb_array_elements(p_items)
+    loop
+        v_productid := (v_item->>'productId')::int;
+        call p_check_product_exists(v_productid);
+
+        if exists(select 1 from products where productid = v_productid and isactive = false) then
+            raise exception 'Product with ID % is not active', v_productid;
+        end if;
+
+        insert into orderdetails(orderid, productid, unitprice, quantity)
+        values (v_orderid,
+                v_productid,
+                (select price from products where productid = v_productid),
+                (v_item->>'quantity')::int);
+    end loop;
+end;
+$$ language plpgsql;
 
 create or replace procedure p_cancel_order(
     p_customerid int,
     p_orderid int
 ) as $$
 begin
-    call p_check_order_exists(p_orderid);
     call p_check_customers_order_exists(p_customerid, p_orderid);
 
     update orders
@@ -504,13 +464,16 @@ begin
 end;
 $$ language plpgsql;
 
-
 create or replace procedure p_change_order_status(
     p_orderid int,
     p_newstatus varchar
 ) as $$
 begin
+
     call p_check_order_exists(p_orderid);
+	if p_newstatus not in ('pending', 'packed', 'cancelled', 'delivered') then
+		raise exception 'Invalid status: %', p_newstatus;
+	end if;
     update orders
     set status = p_newstatus
     where orderid = p_orderid;
