@@ -17,7 +17,7 @@ public class ProductService {
     private ProductRepository productRepository;
 
     public List<ProductDto> getAll() {
-        return productRepository.findAll()
+        return productRepository.findAllActive()
                 .stream()
                 .map(this::toDto)
                 .collect(Collectors.toList());
