@@ -78,4 +78,7 @@ public class OrderService {
     }
 
 
+//    public void orderDelivered(Integer orderId) {
+//        orderRepository.payOrder(customerId,orderId,paymentMethodId);
+//    }
 }

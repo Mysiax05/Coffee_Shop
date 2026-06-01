@@ -26,5 +26,14 @@ public interface AddressRepository extends JpaRepository<Address, Integer> {
             @Param("country") String country
     );
 
+    @Transactional
+    @Modifying
+    @Query(value = "CALL p_deactivate_address(:customerId, :addressId)",
+            nativeQuery = true)
+    void deactivateAddress(
+            @Param("customerId") Integer customerId,
+            @Param("addressId") Integer addressId
+    );
+
     List<Address> findByCustomer_CustomerId(Integer customerId);
 }

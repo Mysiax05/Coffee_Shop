@@ -347,7 +347,7 @@ declare
 begin
     call p_check_address_exists(p_addressid);
     call p_check_customer_exists(p_customerid);
-    call p_check_address_belongs_to_customer(p_adderssid, p_customerid);
+    call p_check_address_belongs_to_customer(p_addressid, p_customerid);
 
     select isdefault into v_was_default
     from addresses where addressid = p_addressid;

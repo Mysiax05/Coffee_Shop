@@ -33,4 +33,12 @@ public class AddressController {
     public ResponseEntity<List<AddressDto>> findByCustomerId(@PathVariable Integer customerId) {
         return ResponseEntity.ok(addressService.findByCustomerId(customerId));
     }
+
+    @PatchMapping("/{addressId}/deactivate")
+    public ResponseEntity<Void> deactivateAddress(
+            @PathVariable Integer addressId,
+            @RequestParam Integer customerId){
+        addressService.deactivateAddress(addressId, customerId);
+        return ResponseEntity.status(200).build();
+    }
 }

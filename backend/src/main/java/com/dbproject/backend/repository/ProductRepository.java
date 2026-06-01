@@ -13,6 +13,9 @@ import java.util.List;
 @Repository
 public interface ProductRepository extends JpaRepository<Product, Integer> {
 
+    @Query(value = "SELECT * FROM vw_active_products", nativeQuery = true)
+    List<Product> findAllActive();
+
     @Query(value = "SELECT * FROM f_get_order_products(:orderId)", nativeQuery = true)
     List<OrderItem> findProductsOfOrder(@Param("orderId") Integer orderId);
 }

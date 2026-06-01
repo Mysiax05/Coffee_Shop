@@ -36,6 +36,10 @@ public class AddressService {
                 .collect(Collectors.toList());
     }
 
+    public void deactivateAddress(Integer addressId, Integer customerId) {
+        addressRepository.deactivateAddress(addressId, customerId);
+    }
+
     private AddressDto toDTO(Address address) {
         AddressDto dto = new AddressDto();
         dto.setAddressId(address.getAddressId());
@@ -47,4 +51,6 @@ public class AddressService {
         dto.setIsDefault(address.getIsDefault());
         return dto;
     }
+
+
 }
