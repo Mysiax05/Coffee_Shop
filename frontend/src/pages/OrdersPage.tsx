@@ -76,6 +76,9 @@ export default function OrdersPage() {
   }
 
   const isPending = (status: string) => status?.toLowerCase() === 'pending'
+  // Anulować można zamówienia oczekujące oraz spakowane (packed) —
+  // trigger w bazie przy przejściu packed -> cancelled przywraca stan magazynowy.
+  const canCancel = (status: string) => ['pending', 'packed'].includes(status?.toLowerCase())
 
   return (
     <div>
@@ -122,26 +125,32 @@ export default function OrdersPage() {
 
               <div className="summary total"><span>Razem</span><span>{formatPrice(o.totalOrderCost)}</span></div>
 
-              {isPending(o.status) && (
+              {(isPending(o.status) || canCancel(o.status)) && (
                 <div className="toolbar" style={{ marginTop: 12, marginBottom: 0 }}>
-                  <select
-                    className="select"
-                    style={{ maxWidth: 220 }}
-                    value={selectedMethod[o.orderId] ?? methods[0]?.paymentMethodId ?? ''}
-                    onChange={(e) => setSelectedMethod({ ...selectedMethod, [o.orderId]: Number(e.target.value) })}
-                  >
-                    {methods.map((m) => (
-                      <option key={m.paymentMethodId} value={m.paymentMethodId}>
-                        {m.provider} ({m.type})
-                      </option>
-                    ))}
-                  </select>
-                  <button className="btn btn-primary" disabled={busyOrder === o.orderId} onClick={() => handlePay(o.orderId)}>
-                    {busyOrder === o.orderId ? '…' : 'Zapłać'}
-                  </button>
-                  <button className="btn btn-danger" disabled={busyOrder === o.orderId} onClick={() => handleCancel(o.orderId)}>
-                    Anuluj
-                  </button>
+                  {isPending(o.status) && (
+                    <>
+                      <select
+                        className="select"
+                        style={{ maxWidth: 220 }}
+                        value={selectedMethod[o.orderId] ?? methods[0]?.paymentMethodId ?? ''}
+                        onChange={(e) => setSelectedMethod({ ...selectedMethod, [o.orderId]: Number(e.target.value) })}
+                      >
+                        {methods.map((m) => (
+                          <option key={m.paymentMethodId} value={m.paymentMethodId}>
+                            {m.provider} ({m.type})
+                          </option>
+                        ))}
+                      </select>
+                      <button className="btn btn-primary" disabled={busyOrder === o.orderId} onClick={() => handlePay(o.orderId)}>
+                        {busyOrder === o.orderId ? '…' : 'Zapłać'}
+                      </button>
+                    </>
+                  )}
+                  {canCancel(o.status) && (
+                    <button className="btn btn-danger" disabled={busyOrder === o.orderId} onClick={() => handleCancel(o.orderId)}>
+                      {busyOrder === o.orderId ? '…' : 'Anuluj zamówienie'}
+                    </button>
+                  )}
                 </div>
               )}
             </div>
