@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/addresses")
@@ -30,15 +31,15 @@ public class AddressController {
     }
 
     @GetMapping("/customer/{customerId}")
-    public ResponseEntity<List<AddressDto>> findByCustomerId(@PathVariable Integer customerId) {
-        return ResponseEntity.ok(addressService.findByCustomerId(customerId));
+    public ResponseEntity<List<AddressDto>> findActiveByCustomerId(@PathVariable Integer customerId) {
+        return ResponseEntity.ok(addressService.findActiveByCustomerId(customerId));
     }
 
     @PatchMapping("/{addressId}/deactivate")
     public ResponseEntity<Void> deactivateAddress(
             @PathVariable Integer addressId,
-            @RequestParam Integer customerId){
-        addressService.deactivateAddress(addressId, customerId);
+            @RequestParam Integer customerId) {
+        addressService.deactivateAddress(addressId,customerId);
         return ResponseEntity.status(200).build();
     }
 }

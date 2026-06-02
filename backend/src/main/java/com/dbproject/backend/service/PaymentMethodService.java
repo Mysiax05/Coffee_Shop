@@ -5,6 +5,7 @@ import com.dbproject.backend.repository.PaymentMethodRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class PaymentMethodService {
@@ -14,7 +15,14 @@ public class PaymentMethodService {
         this.paymentMethodRepository=paymentMethodRepository;
     }
 
-    public List<PaymentMethod> getAll(){
-        return paymentMethodRepository.findAll();
+    public List<PaymentMethod> getAllActive(){
+        return paymentMethodRepository.findAll()
+                .stream()
+                .filter(PaymentMethod::getIsActive)
+                .collect(Collectors.toList());
+    }
+
+    public void deactivatePaymentMethod(Integer paymentMethodId){
+        paymentMethodRepository.deactivatePaymentMethod(paymentMethodId);
     }
 }

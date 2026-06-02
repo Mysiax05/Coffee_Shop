@@ -44,4 +44,11 @@ public interface OrderRepository extends JpaRepository<Order, Integer> {
             @Param("customerId") Integer customerId,
             @Param("orderId") Integer orderId
     );
+
+    @Modifying
+    @Transactional
+    @Query(value = "CALL p_change_order_status(:orderId,'delivered')", nativeQuery = true)
+    void orderDelivered(
+            @Param("orderId") Integer orderId
+    );
 }

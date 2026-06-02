@@ -475,7 +475,12 @@ begin
 		raise exception 'Invalid status: %', p_newstatus;
 	end if;
     update orders
-    set status = p_newstatus
+    set status = p_newstatus,
+		shipdate = case
+			when status = 'packed' and p_newstatus = 'delivered' and shipdate is null
+			then now()
+			else shipdate
+		end
     where orderid = p_orderid;
 end;
 $$ language plpgsql;

@@ -31,8 +31,8 @@ public interface AddressRepository extends JpaRepository<Address, Integer> {
     @Query(value = "CALL p_deactivate_address(:customerId, :addressId)",
             nativeQuery = true)
     void deactivateAddress(
-            @Param("customerId") Integer customerId,
-            @Param("addressId") Integer addressId
+            @Param("addressId") Integer addressId,
+            @Param("customerId") Integer customerId
     );
 
     List<Address> findByCustomer_CustomerId(Integer customerId);

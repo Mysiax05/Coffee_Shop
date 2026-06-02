@@ -77,6 +77,10 @@ public class OrderService {
         return dto;
     }
 
+    public void orderDelivered(Integer orderId) {
+        orderRepository.orderDelivered(orderId);
+    }
+
 
 //    public void orderDelivered(Integer orderId) {
 //        orderRepository.payOrder(customerId,orderId,paymentMethodId);

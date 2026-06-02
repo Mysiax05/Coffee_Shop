@@ -29,9 +29,10 @@ public class AddressService {
         );
     }
 
-    public List<AddressDto> findByCustomerId(Integer customerId) {
+    public List<AddressDto> findActiveByCustomerId(Integer customerId) {
         return addressRepository.findByCustomer_CustomerId(customerId)
                 .stream()
+                .filter(Address::getIsActive)
                 .map(this::toDTO)
                 .collect(Collectors.toList());
     }

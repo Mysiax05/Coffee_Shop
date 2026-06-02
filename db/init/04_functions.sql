@@ -226,7 +226,7 @@ create or replace function t_f_validate_order_status_transition()
 returns trigger as $$
     begin
         if old.status = new.status then
-            return new;
+            raise exception 'Order is already %', old.status;
         end if;
         if (old.status='cancelled') or
            (old.status='delivered') or
@@ -238,6 +238,7 @@ returns trigger as $$
         return new;
     end;
     $$ language plpgsql;
+
 
 create or replace function t_f_validate_address_active()
 returns trigger as $$

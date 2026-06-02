@@ -51,10 +51,10 @@ public class OrderController {
         return ResponseEntity.ok().build();
     }
 
-//    @PostMapping("/{orderId}/deliver")
-//    public ResponseEntity<Void> orderDelivered(
-//            @PathVariable Integer orderId) {
-//        orderService.orderDelivered(orderId);
-//        return ResponseEntity.ok().build();
-//    }
+    @PostMapping("/{orderId}/deliver")
+    public ResponseEntity<Void> orderDelivered(
+            @PathVariable Integer orderId) {
+        orderService.orderDelivered(orderId);
+        return ResponseEntity.ok().build();
+    }
 }

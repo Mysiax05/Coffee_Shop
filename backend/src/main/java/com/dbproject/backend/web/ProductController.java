@@ -4,10 +4,7 @@ import com.dbproject.backend.dto.ProductDto;
 import com.dbproject.backend.service.ProductService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -19,12 +16,19 @@ public class ProductController {
     private ProductService productService;
 
     @GetMapping
-    public ResponseEntity<List<ProductDto>> getAll() {
+    public ResponseEntity<List<ProductDto>> getAllActive() {
         return ResponseEntity.ok(productService.getAll());
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ProductDto> findById(@PathVariable Integer id) {
-        return ResponseEntity.ok(productService.findById(id));
+    public ResponseEntity<ProductDto> findActiveById(@PathVariable Integer id) {
+        return ResponseEntity.ok(productService.findActiveById(id));
     }
+
+    @PatchMapping("/{id}/deactivate")
+    public ResponseEntity<Void> deactivateProduct(@PathVariable Integer id){
+        productService.deactivateProduct(id);
+        return ResponseEntity.status(200).build();
+    }
+
 }

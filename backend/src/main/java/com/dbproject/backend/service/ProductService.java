@@ -19,12 +19,14 @@ public class ProductService {
     public List<ProductDto> getAll() {
         return productRepository.findAllActive()
                 .stream()
+                .filter(Product::getIsActive)
                 .map(this::toDto)
                 .collect(Collectors.toList());
     }
 
-    public ProductDto findById(Integer productId) {
+    public ProductDto findActiveById(Integer productId) {
         Product product = productRepository.findById(productId)
+                .filter(Product::getIsActive)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         String.format("Product with ID %d was not found", productId)));
         return toDto(product);
@@ -43,4 +45,7 @@ public class ProductService {
         return dto;
     }
 
+    public void deactivateProduct(Integer id) {
+        productRepository.deactivateProduct(id);
+    }
 }
