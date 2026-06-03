@@ -19,6 +19,9 @@ export const getProduct = (id: number) => api.get<ProductDto>(`/products/${id}`)
 
 // --- Kategorie ---  CategoryController
 export const getCategories = () => api.get<CategoryDto[]>('/categories')
+// Zwraca plaska liste kategorii: wskazana kategoria + wszystkie jej podkategorie (poddrzewo).
+export const getCategorySubtree = (id: number) =>
+  api.get<CategoryDto[]>(`/categories/${id}`)
 
 // --- Klienci ---  CustomerController (tylko rejestracja; loginu brak w backendzie)
 export const registerCustomer = (body: RegisterCustomerRequest) =>

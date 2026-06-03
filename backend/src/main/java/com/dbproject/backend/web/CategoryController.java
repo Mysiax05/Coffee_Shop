@@ -24,7 +24,7 @@ public class CategoryController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<CategoryDto> findById(@PathVariable Integer id) {
-        return ResponseEntity.ok(categoryService.findById(id));
+    public ResponseEntity<List<CategoryDto>> getCategorySubtree(@PathVariable Integer id) {
+        return ResponseEntity.ok(categoryService.getCategorySubtree(id));
     }
 }

@@ -23,12 +23,12 @@ public class CategoryService {
                 .toList();
     }
 
-    public CategoryDto findById(Integer categoryId) {
-        Category category = categoryRepository.findById(categoryId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        String.format("Category with ID %d not found", categoryId)
-                ));
-        return toDto(category);
+    public List<CategoryDto> getCategorySubtree(Integer categoryId) {
+        List<Integer> ids = categoryRepository.getCategorySubtreeIds(categoryId);
+        return categoryRepository.findAllById(ids)
+                .stream()
+                .map(this::toDto)
+                .toList();
     }
 
     public CategoryDto toDto(Category category) {
