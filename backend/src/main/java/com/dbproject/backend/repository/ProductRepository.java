@@ -1,7 +1,6 @@
 package com.dbproject.backend.repository;
 
 import com.dbproject.backend.dto.OrderItem;
-import com.dbproject.backend.entity.Order;
 import com.dbproject.backend.entity.Product;
 import jakarta.transaction.Transactional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -26,4 +25,10 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
     @Query(value = "CALL p_deactivate_product(:productId)",
             nativeQuery = true)
     void deactivateProduct(@Param("productId") Integer productId);
+
+    @Query(value = "SELECT * FROM f_report_best_sellers(:limit, :categoryId)", nativeQuery = true)
+    List<Object[]> findBestSellers(
+            @Param("limit") Integer limit,
+            @Param("categoryId") Integer categoryId
+    );
 }
