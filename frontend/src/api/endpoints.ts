@@ -31,6 +31,8 @@ export const registerCustomer = (body: RegisterCustomerRequest) =>
 export const getAddresses = (customerId: number) =>
   api.get<AddressDto[]>(`/addresses/customer/${customerId}`)
 export const addAddress = (body: AddAddressRequest) => api.post<void>('/addresses', body)
+export const deactivateAddress = (addressId: number, customerId: number) =>
+  api.patch<void>(`/addresses/${addressId}/deactivate?customerId=${customerId}`)
 
 // --- Zamowienia ---  OrderController
 export const getOrders = (customerId: number) =>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { addAddress, getAddresses, registerCustomer } from '../api/endpoints'
+import { addAddress, deactivateAddress, getAddresses, registerCustomer } from '../api/endpoints'
 import type { AddressDto } from '../api/types'
 import { useAuth } from '../context/AuthContext'
 
@@ -36,6 +36,16 @@ export default function AccountPage() {
       setReg(emptyReg)
     } catch (err) {
       setRegMsg({ type: 'error', text: (err as Error).message })
+    }
+  }
+
+  const handleDeactivateAddress = async (addressId: number) => {
+    if (!session) return
+    try {
+      await deactivateAddress(addressId, session.customerId)
+      loadAddresses()
+    } catch (err) {
+      setAddrMsg((err as Error).message)
     }
   }
 
@@ -133,10 +143,19 @@ export default function AccountPage() {
             ) : (
               <ul style={{ paddingLeft: 18, margin: '0 0 12px' }}>
                 {addresses.map((a) => (
-                  <li key={a.addressId}>
-                    {a.label ? <strong>{a.label}: </strong> : null}
-                    {a.street}, {a.postalCode} {a.city}, {a.country}
-                    {a.isDefault && <span className="badge badge-default" style={{ marginLeft: 8 }}>domyślny</span>}
+                  <li key={a.addressId} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                    <span>
+                      {a.label ? <strong>{a.label}: </strong> : null}
+                      {a.street}, {a.postalCode} {a.city}, {a.country}
+                      {a.isDefault && <span className="badge badge-default" style={{ marginLeft: 8 }}>domyślny</span>}
+                    </span>
+                    <button
+                      className="btn btn-danger"
+                      style={{ padding: '2px 8px', fontSize: '0.8rem' }}
+                      onClick={() => handleDeactivateAddress(a.addressId)}
+                    >
+                      Usuń
+                    </button>
                   </li>
                 ))}
               </ul>
