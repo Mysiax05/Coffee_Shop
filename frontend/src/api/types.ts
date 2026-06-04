@@ -6,12 +6,30 @@
 export interface ProductDto {
   productId: number
   name: string
-  categoryId: number
-  categoryName: string
+  // Uwaga: odpowiedz z POST /products/filter NIE zawiera kategorii (sa null/0).
+  categoryId: number | null
+  categoryName: string | null
   price: number
   stock: number
   active?: boolean
   attributes: string
+}
+
+// Cialo POST /api/products/filter (ProductFilterRequest).
+// attributes = JSON jako string, np. '{"roast":"medium"}' (dopasowanie przez zawieranie).
+export interface ProductFilterRequest {
+  minPrice?: number | null
+  maxPrice?: number | null
+  categoryId?: number | null
+  attributes?: string | null
+}
+
+// GET /api/reports/best-sellers (BestSellerDto).
+export interface BestSellerDto {
+  productId: number
+  name: string
+  totalSold: number
+  revenue: number
 }
 
 export interface CategoryDto {
