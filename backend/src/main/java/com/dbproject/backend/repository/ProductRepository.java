@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Repository
@@ -30,5 +31,15 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
     List<Object[]> findBestSellers(
             @Param("limit") Integer limit,
             @Param("categoryId") Integer categoryId
+    );
+
+    @Query(value = "SELECT productid, name, price, stock, attributes::text " +
+            "FROM f_filter_products(:minPrice, :maxPrice, :categoryId, CAST(:attributes AS jsonb))",
+            nativeQuery = true)
+    List<Object[]> filterProducts(
+            @Param("minPrice") BigDecimal minPrice,
+            @Param("maxPrice") BigDecimal maxPrice,
+            @Param("categoryId") Integer categoryId,
+            @Param("attributes") String attributes
     );
 }

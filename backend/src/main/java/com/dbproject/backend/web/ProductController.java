@@ -1,6 +1,7 @@
 package com.dbproject.backend.web;
 
 import com.dbproject.backend.dto.ProductDto;
+import com.dbproject.backend.dto.ProductFilterRequest;
 import com.dbproject.backend.service.ProductService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -31,4 +32,8 @@ public class ProductController {
         return ResponseEntity.status(200).build();
     }
 
+    @PostMapping("/filter")
+    public ResponseEntity<List<ProductDto>> filterProducts(@RequestBody ProductFilterRequest request) {
+        return ResponseEntity.ok(productService.filterProducts(request));
+    }
 }

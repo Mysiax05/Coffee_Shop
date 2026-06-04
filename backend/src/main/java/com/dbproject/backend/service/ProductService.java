@@ -1,12 +1,14 @@
 package com.dbproject.backend.service;
 
 import com.dbproject.backend.dto.ProductDto;
+import com.dbproject.backend.dto.ProductFilterRequest;
 import com.dbproject.backend.entity.Product;
 import com.dbproject.backend.exception.ResourceNotFoundException;
 import com.dbproject.backend.repository.ProductRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -30,6 +32,25 @@ public class ProductService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         String.format("Product with ID %d was not found", productId)));
         return toDto(product);
+    }
+
+    public List<ProductDto> filterProducts(ProductFilterRequest request) {
+        List<Object[]> rows = productRepository.filterProducts(
+                request.getMinPrice(),
+                request.getMaxPrice(),
+                request.getCategoryId(),
+                request.getAttributes()
+        );
+
+        return rows.stream().map(row -> {
+            ProductDto dto = new ProductDto();
+            dto.setProductId((Integer) row[0]);
+            dto.setName((String) row[1]);
+            dto.setPrice((BigDecimal) row[2]);
+            dto.setStock((Integer) row[3]);
+            dto.setAttributes(row[4] != null ? row[4].toString() : "{}");
+            return dto;
+        }).toList();
     }
 
     public ProductDto toDto(Product product) {
