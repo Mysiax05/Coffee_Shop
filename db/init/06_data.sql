@@ -59,7 +59,7 @@ VALUES
     (10, 'Ekspres do kawy Melitta Barista T F83/0-002', 2599.00, 20, '{"marka": "Melitta", "wyjmowany spieniacz": "tak", "ilość dozowników": "2"}'),
     (10, 'Ekspres do kawy Nivona 792', 2999.00, 15, '{"marka": "Nivona", "wyjmowany spieniacz": "tak", "ilość dozowników": "1"}'),
     (10, 'Ekspres do kawy Philips EP2224/10', 1919.00, 20, '{"marka": "Philips", "wyjmowany spieniacz": "nie", "ilość dozowników": "2"}'),
-    (11, 'Ekspres do kawy Ninja Prestige CFN802EU 2w1 ze spieniaczem', 1199.00, 30, '{"marka": "Ninja", "kompatybilność": "kapsułki Nespresso Original i kompatybilne kapsułki innych marek"}'),
+    (11, 'Ekspres na kapsułki Nespresso KRUPS Essenza Mini Biały z Aeroccino XN111110', 899.00, 30, '{"marka": "Krups", "kompatybilność": "Nespresso"}'),
     (11, 'Ekspres na kapsułki Lavazza Blue LB CLASSY', 1999.00, 25, '{"marka": "Lavazza", "kompatybilność": "Lavazza Blue"}');
 
 INSERT INTO Orders (CustomerID, AddressID, Status, OrderDate, ShipDate)

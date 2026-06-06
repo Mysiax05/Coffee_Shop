@@ -81,6 +81,12 @@ p { margin: 0; }
 .product-card .spacer { flex: 1; }
 .bestseller-badge { align-self: flex-start; background: var(--warning-bg); color: var(--warning); font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
 
+/* Obrazki produktow */
+.product-img-wrap { position: relative; }
+.product-img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 10px; background: var(--bg-soft); display: block; }
+.product-img-placeholder { display: flex; align-items: center; justify-content: center; font-size: 40px; color: var(--muted); }
+.product-img-badge { position: absolute; top: 8px; left: 8px; align-self: auto; box-shadow: var(--shadow); }
+
 /* Kaskadowy wybor kategorii */
 .cascader { display: flex; gap: 8px; flex-wrap: wrap; }
 .cascader .select { max-width: 240px; }

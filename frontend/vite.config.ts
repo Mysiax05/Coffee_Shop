@@ -12,6 +12,11 @@ export default defineConfig({
         target: 'http://localhost:8080',
         changeOrigin: true,
       },
+      // Statyczne obrazki produktow serwowane przez Spring z static/images.
+      '/images': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
     },
   },
 })
