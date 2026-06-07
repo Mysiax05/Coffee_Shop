@@ -19,7 +19,7 @@ export default function OrdersPage() {
     if (!session) return
     setLoading(true)
     try {
-      const [o, m] = await Promise.all([getOrders(session.customerId), getPaymentMethods()])
+      const [o, m] = await Promise.all([getOrders(), getPaymentMethods()])
       setOrders(o)
       setMethods(m)
       setError(null)
@@ -52,7 +52,7 @@ export default function OrdersPage() {
     setBusyOrder(orderId)
     setError(null)
     try {
-      await payOrder(orderId, { customerId: session.customerId, paymentMethodId: methodId })
+      await payOrder(orderId, { paymentMethodId: methodId })
       await load()
     } catch (e) {
       setError((e as Error).message)
@@ -66,7 +66,7 @@ export default function OrdersPage() {
     setBusyOrder(orderId)
     setError(null)
     try {
-      await cancelOrder(orderId, session.customerId)
+      await cancelOrder(orderId)
       await load()
     } catch (e) {
       setError((e as Error).message)

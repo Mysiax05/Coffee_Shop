@@ -5,12 +5,15 @@ import { useAuth } from '../context/AuthContext'
 
 const emptyReg = { firstName: '', lastName: '', email: '', phone: '', passwordHash: '' }
 const emptyAddr = { label: '', street: '', city: '', postalCode: '', country: 'Poland' }
+const emptyLogin = { email: '', password: '' }
 
 export default function AccountPage() {
-  const { session, isLoggedIn, loginWithId, logout } = useAuth()
+  const { session, isLoggedIn, login, logout } = useAuth()
 
-  // --- Tymczasowe logowanie po ID (backend nie ma jeszcze endpointu logowania) ---
-  const [idInput, setIdInput] = useState('')
+  // --- Logowanie (e-mail + haslo) ---
+  const [loginForm, setLoginForm] = useState(emptyLogin)
+  const [loginMsg, setLoginMsg] = useState<string | null>(null)
+  const [loggingIn, setLoggingIn] = useState(false)
 
   // --- Rejestracja ---
   const [reg, setReg] = useState(emptyReg)
@@ -22,17 +25,31 @@ export default function AccountPage() {
   const [addrMsg, setAddrMsg] = useState<string | null>(null)
 
   const loadAddresses = () => {
-    if (session) getAddresses(session.customerId).then(setAddresses).catch(() => {})
+    if (session) getAddresses().then(setAddresses).catch(() => {})
   }
 
   useEffect(loadAddresses, [session])
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoginMsg(null)
+    setLoggingIn(true)
+    try {
+      await login(loginForm)
+      setLoginForm(emptyLogin)
+    } catch (err) {
+      setLoginMsg((err as Error).message)
+    } finally {
+      setLoggingIn(false)
+    }
+  }
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
     setRegMsg(null)
     try {
       await registerCustomer({ ...reg, phone: reg.phone || undefined })
-      setRegMsg({ type: 'success', text: 'Konto utworzone. Zaloguj się podając swój Customer ID z bazy.' })
+      setRegMsg({ type: 'success', text: 'Konto utworzone. Zaloguj się e-mailem i hasłem.' })
       setReg(emptyReg)
     } catch (err) {
       setRegMsg({ type: 'error', text: (err as Error).message })
@@ -42,7 +59,7 @@ export default function AccountPage() {
   const handleDeactivateAddress = async (addressId: number) => {
     if (!session) return
     try {
-      await deactivateAddress(addressId, session.customerId)
+      await deactivateAddress(addressId)
       loadAddresses()
     } catch (err) {
       setAddrMsg((err as Error).message)
@@ -54,7 +71,7 @@ export default function AccountPage() {
     if (!session) return
     setAddrMsg(null)
     try {
-      await addAddress({ customerId: session.customerId, ...addr })
+      await addAddress({ ...addr })
       setAddr(emptyAddr)
       setAddrMsg('Adres dodany.')
       loadAddresses()
@@ -67,31 +84,31 @@ export default function AccountPage() {
     <div>
       <div className="page-head"><h1>Konto</h1></div>
 
-      <div className="alert alert-info">
-        Backend nie udostępnia jeszcze logowania — sesja jest tymczasowo ustawiana przez podanie
-        <strong> Customer ID</strong>. Gdy dodasz endpoint logowania, wystarczy podmienić funkcję
-        <code> loginWithId</code> w <code>AuthContext.tsx</code>.
-      </div>
-
       <div className="stack">
         {/* Sesja */}
         <div className="card center-narrow" style={{ width: '100%' }}>
           <h2>Sesja</h2>
           {isLoggedIn ? (
             <div className="row-between">
-              <span>Zalogowano jako klient <strong>#{session?.customerId}</strong></span>
+              <span>Zalogowano jako <strong>{session?.firstName} {session?.lastName}</strong> ({session?.email})</span>
               <button className="btn btn-danger" onClick={logout}>Wyloguj</button>
             </div>
           ) : (
-            <form
-              onSubmit={(e) => { e.preventDefault(); const n = Number(idInput); if (n > 0) loginWithId(n) }}
-            >
+            <form onSubmit={handleLogin}>
+              {loginMsg && <div className="alert alert-error">{loginMsg}</div>}
               <div className="field">
-                <label>Customer ID</label>
-                <input className="input" type="number" min={1} required value={idInput}
-                  onChange={(e) => setIdInput(e.target.value)} placeholder="np. 1" />
+                <label>E-mail</label>
+                <input className="input" type="email" required value={loginForm.email}
+                  onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })} />
               </div>
-              <button className="btn btn-primary btn-block" type="submit">Zaloguj</button>
+              <div className="field">
+                <label>Hasło <span className="muted">(puste dla kont bez hasła)</span></label>
+                <input className="input" type="password" value={loginForm.password}
+                  onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })} />
+              </div>
+              <button className="btn btn-primary btn-block" type="submit" disabled={loggingIn}>
+                {loggingIn ? 'Logowanie…' : 'Zaloguj'}
+              </button>
             </form>
           )}
         </div>

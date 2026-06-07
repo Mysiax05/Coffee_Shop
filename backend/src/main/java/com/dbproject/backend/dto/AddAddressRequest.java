@@ -5,7 +5,6 @@ import lombok.Data;
 @Data
 public class AddAddressRequest {
 
-    private Integer customerId;
     private String label;
     private String street;
     private String city;

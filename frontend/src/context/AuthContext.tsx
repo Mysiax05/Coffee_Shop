@@ -1,49 +1,47 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-
-// UWAGA: backend nie ma jeszcze endpointu logowania.
-// Tymczasowo "sesja" = zapamietany customerId (np. po rejestracji znasz swoje ID z bazy).
-// Gdy w backendzie powstanie POST /api/.../login zwracajacy klienta,
-// wystarczy podmienic implementacje login() ponizej (TODO) - reszta appki sie nie zmieni.
-
-interface Session {
-  customerId: number
-}
+import { getMe, login as apiLogin, logout as apiLogout } from '../api/endpoints'
+import type { CustomerDto, LoginRequest } from '../api/types'
 
 interface AuthContextValue {
-  session: Session | null
+  session: CustomerDto | null
   isLoggedIn: boolean
-  /** Tymczasowe: ustawia sesje na podstawie customerId. Docelowo: realny login. */
-  loginWithId: (customerId: number) => void
-  logout: () => void
+  loading: boolean
+  login: (credentials: LoginRequest) => Promise<void>
+  logout: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
-const STORAGE_KEY = 'shop.session'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY)
-      return raw ? (JSON.parse(raw) as Session) : null
-    } catch {
-      return null
-    }
-  })
+  const [session, setSession] = useState<CustomerDto | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (session) localStorage.setItem(STORAGE_KEY, JSON.stringify(session))
-    else localStorage.removeItem(STORAGE_KEY)
-  }, [session])
+    getMe()
+      .then(setSession)
+      .catch(() => setSession(null))
+      .finally(() => setLoading(false))
+  }, [])
 
   const value = useMemo<AuthContextValue>(
     () => ({
       session,
       isLoggedIn: session !== null,
-      loginWithId: (customerId: number) => setSession({ customerId }),
-      logout: () => setSession(null),
+      loading,
+      login: async (credentials: LoginRequest) => {
+        const customer = await apiLogin(credentials)
+        setSession(customer)
+      },
+      logout: async () => {
+        try {
+          await apiLogout()
+        } finally {
+          setSession(null)
+        }
+      },
     }),
-    [session],
+    [session, loading],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

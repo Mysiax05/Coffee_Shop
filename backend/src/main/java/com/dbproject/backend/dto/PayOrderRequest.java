@@ -3,6 +3,5 @@ import lombok.Data;
 
 @Data
 public class PayOrderRequest {
-    private Integer customerId;
     private Integer paymentMethodId;
 }

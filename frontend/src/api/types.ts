@@ -50,7 +50,6 @@ export interface AddressDto {
 }
 
 export interface AddAddressRequest {
-  customerId: number
   label: string
   street: string
   city: string
@@ -91,13 +90,11 @@ export interface CreateOrderItem {
 }
 
 export interface CreateOrderRequest {
-  customerId: number
   addressId: number
   items: CreateOrderItem[]
 }
 
 export interface PayOrderRequest {
-  customerId: number
   paymentMethodId: number
 }
 
@@ -130,4 +127,19 @@ export interface RegisterCustomerRequest {
   email: string
   phone?: string
   passwordHash: string
+}
+
+// Cialo POST /api/auth/login. Haslo opcjonalne - konta bez hasla loguja sie samym e-mailem.
+export interface LoginRequest {
+  email: string
+  password?: string
+}
+
+// Odpowiedz /api/auth/login oraz /api/auth/me (CustomerDto, bez hasla).
+export interface CustomerDto {
+  customerId: number
+  firstName: string
+  lastName: string
+  email: string
+  phone: string | null
 }

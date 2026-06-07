@@ -23,7 +23,7 @@ export default function Navbar() {
         <div className="nav-right">
           {isLoggedIn ? (
             <>
-              <span className="nav-user">Klient #{session?.customerId}</span>
+              <span className="nav-user">{session?.firstName ?? session?.email}</span>
               <button className="btn btn-sm" onClick={logout}>Wyloguj</button>
             </>
           ) : (

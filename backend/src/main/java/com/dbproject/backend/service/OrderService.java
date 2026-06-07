@@ -28,10 +28,10 @@ public class OrderService {
         this.objectMapper = objectMapper;
     }
 
-    public void createOrder(CreateOrderRequest request) {
+    public void createOrder(Integer customerId, CreateOrderRequest request) {
         try {
             String itemsJson = objectMapper.writeValueAsString(request.getItems());
-            orderRepository.createOrder(request.getCustomerId(), request.getAddressId(), itemsJson);
+            orderRepository.createOrder(customerId, request.getAddressId(), itemsJson);
         } catch (Exception e) {
             throw new RuntimeException("Failed to serialize order items", e);
         }

@@ -26,6 +26,7 @@ async function parseError(res: Response): Promise<string> {
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
+    credentials: 'include',
     headers: { 'Content-Type': 'application/json', ...(options.headers ?? {}) },
     ...options,
   })

@@ -22,7 +22,7 @@ export default function CheckoutPage() {
 
   const loadAddresses = async (preselectLast = false) => {
     if (!session) return
-    const list = await getAddresses(session.customerId)
+    const list = await getAddresses()
     setAddresses(list)
     if (list.length > 0) {
       const def = list.find((a) => a.isDefault)
@@ -53,7 +53,7 @@ export default function CheckoutPage() {
     if (!session) return
     setError(null)
     try {
-      await addAddress({ customerId: session.customerId, ...newAddr })
+      await addAddress({ ...newAddr })
       setNewAddr(emptyAddress)
       setShowNew(false)
       await loadAddresses(true)
@@ -68,7 +68,6 @@ export default function CheckoutPage() {
     setError(null)
     try {
       await createOrder({
-        customerId: session.customerId,
         addressId: selectedAddress,
         items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
       })

@@ -15,7 +15,7 @@ export default function PaymentsPage() {
 
   useEffect(() => {
     if (!isLoggedIn || !session) { setLoading(false); return }
-    Promise.all([getPayments(session.customerId), getTotalExpense(session.customerId)])
+    Promise.all([getPayments(), getTotalExpense()])
       .then(([p, t]) => { setPayments(p); setTotal(Number(t)) })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false))

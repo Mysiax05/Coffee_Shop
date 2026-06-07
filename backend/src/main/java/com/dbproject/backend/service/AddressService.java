@@ -18,9 +18,9 @@ public class AddressService {
         this.addressRepository = addressRepository;
     }
 
-    public void addAddress(AddAddressRequest request) {
+    public void addAddress(Integer customerId, AddAddressRequest request) {
         addressRepository.addAddress(
-                request.getCustomerId(),
+                customerId,
                 request.getLabel(),
                 request.getStreet(),
                 request.getCity(),
