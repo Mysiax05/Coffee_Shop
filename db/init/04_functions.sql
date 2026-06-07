@@ -243,6 +243,9 @@ returns trigger as $$
 create or replace function t_f_validate_address_active()
 returns trigger as $$
     begin
+        if TG_OP = 'UPDATE' and new.addressid is not distinct from old.addressid then
+            return new;
+        end if;
         if not exists(select 1 from vw_active_addresses where new.addressid=addressid) then
             raise exception 'Address with ID % is not active', new.addressid;
         end if;
