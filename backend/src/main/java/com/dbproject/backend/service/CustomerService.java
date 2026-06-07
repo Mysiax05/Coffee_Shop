@@ -55,4 +55,8 @@ public class CustomerService {
                 .setParameter("passwordhash", hashedPassword)
                 .executeUpdate();
     }
+
+    public void changeEmail(Integer customerId, String newEmail) {
+        customerRepository.changeEmail(customerId, newEmail);
+    }
 }

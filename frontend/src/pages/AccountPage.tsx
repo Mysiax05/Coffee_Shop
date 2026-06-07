@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { addAddress, deactivateAddress, getAddresses, registerCustomer } from '../api/endpoints'
+import { addAddress, changeEmail, deactivateAddress, getAddresses, registerCustomer } from '../api/endpoints'
 import type { AddressDto } from '../api/types'
 import { useAuth } from '../context/AuthContext'
 
@@ -8,7 +8,7 @@ const emptyAddr = { label: '', street: '', city: '', postalCode: '', country: 'P
 const emptyLogin = { email: '', password: '' }
 
 export default function AccountPage() {
-  const { session, isLoggedIn, login, logout } = useAuth()
+  const { session, isLoggedIn, login, logout, refresh } = useAuth()
 
   // --- Logowanie (e-mail + haslo) ---
   const [loginForm, setLoginForm] = useState(emptyLogin)
@@ -18,6 +18,10 @@ export default function AccountPage() {
   // --- Rejestracja ---
   const [reg, setReg] = useState(emptyReg)
   const [regMsg, setRegMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  // --- Zmiana e-maila (gdy zalogowany) ---
+  const [newEmail, setNewEmail] = useState('')
+  const [emailMsg, setEmailMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   // --- Adresy (gdy zalogowany) ---
   const [addresses, setAddresses] = useState<AddressDto[]>([])
@@ -53,6 +57,19 @@ export default function AccountPage() {
       setReg(emptyReg)
     } catch (err) {
       setRegMsg({ type: 'error', text: (err as Error).message })
+    }
+  }
+
+  const handleChangeEmail = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setEmailMsg(null)
+    try {
+      await changeEmail(newEmail)
+      await refresh()
+      setNewEmail('')
+      setEmailMsg({ type: 'success', text: 'E-mail zmieniony.' })
+    } catch (err) {
+      setEmailMsg({ type: 'error', text: (err as Error).message })
     }
   }
 
@@ -147,6 +164,22 @@ export default function AccountPage() {
                   onChange={(e) => setReg({ ...reg, passwordHash: e.target.value })} />
               </div>
               <button className="btn btn-primary btn-block" type="submit">Załóż konto</button>
+            </form>
+          </div>
+        )}
+
+        {/* Zmiana e-maila */}
+        {isLoggedIn && (
+          <div className="card center-narrow" style={{ width: '100%' }}>
+            <h2>Zmień e-mail</h2>
+            {emailMsg && <div className={`alert alert-${emailMsg.type === 'success' ? 'success' : 'error'}`}>{emailMsg.text}</div>}
+            <form onSubmit={handleChangeEmail}>
+              <div className="field">
+                <label>Nowy e-mail</label>
+                <input className="input" type="email" required value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)} placeholder={session?.email} />
+              </div>
+              <button className="btn btn-primary btn-block" type="submit">Zmień e-mail</button>
             </form>
           </div>
         )}

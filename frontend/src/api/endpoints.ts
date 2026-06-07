@@ -37,9 +37,11 @@ export const getCategories = () => api.get<CategoryDto[]>('/categories')
 export const getCategorySubtree = (id: number) =>
   api.get<CategoryDto[]>(`/categories/${id}`)
 
-// --- Klienci ---  CustomerController (rejestracja)
+// --- Klienci ---  CustomerController (rejestracja, zmiana e-maila)
 export const registerCustomer = (body: RegisterCustomerRequest) =>
   api.post<void>('/customers', body)
+export const changeEmail = (newEmail: string) =>
+  api.patch<void>('/customers/changemail', { newEmail })
 
 // --- Logowanie ---  AuthController (sesja HTTP oparta o ciasteczko)
 export const login = (body: LoginRequest) => api.post<CustomerDto>('/auth/login', body)

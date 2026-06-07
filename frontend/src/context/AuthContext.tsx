@@ -9,6 +9,7 @@ interface AuthContextValue {
   loading: boolean
   login: (credentials: LoginRequest) => Promise<void>
   logout: () => Promise<void>
+  refresh: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -39,6 +40,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } finally {
           setSession(null)
         }
+      },
+      refresh: async () => {
+        setSession(await getMe())
       },
     }),
     [session, loading],
