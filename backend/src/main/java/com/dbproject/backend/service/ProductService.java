@@ -69,4 +69,8 @@ public class ProductService {
     public void deactivateProduct(Integer id) {
         productRepository.deactivateProduct(id);
     }
+
+    public void updateProductPrice(Integer id, BigDecimal newPrice) { productRepository.updateProductPrice(id,newPrice);}
+
+    public void addProductStock(Integer id, Integer stockToAdd) { productRepository.addProductStock(id, stockToAdd);}
 }

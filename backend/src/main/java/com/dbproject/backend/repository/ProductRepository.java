@@ -42,4 +42,15 @@ public interface ProductRepository extends JpaRepository<Product, Integer> {
             @Param("categoryId") Integer categoryId,
             @Param("attributes") String attributes
     );
+
+    @Transactional
+    @Modifying
+    @Query(value = "CALL p_set_price(:productId, :newPrice)",
+            nativeQuery = true)
+    void updateProductPrice(@Param("productId") Integer id, @Param("newPrice") BigDecimal newPrice);
+
+    @Transactional
+    @Modifying
+    @Query(value = "CALL p_update_stock(:productId, :quantity)", nativeQuery = true)
+    void addProductStock(@Param("productId") Integer productId, @Param("quantity") Integer quantity);
 }
