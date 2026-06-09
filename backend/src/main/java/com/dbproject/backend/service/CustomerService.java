@@ -1,13 +1,12 @@
 package com.dbproject.backend.service;
 
 import com.dbproject.backend.entity.Customer;
+import com.dbproject.backend.exception.EmailAlreadyExistsException;
 import com.dbproject.backend.repository.CustomerRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 
 @Service
 public class CustomerService {
@@ -24,18 +23,12 @@ public class CustomerService {
 
     @Transactional
     public void register(Customer customer){
-//        if (customerRepository.existsByEmail(customer.getEmail())) {
-//            throw new ResponseStatusException(
-//                    HttpStatus.CONFLICT,
-//                    "Email already taken"
-//            );
-//        }
-//
-//        customer.setPasswordHash(
-//                passwordEncoder.encode(customer.getPasswordHash())
-//        );
-//
-//        return customerRepository.save(customer);
+        customerRepository.findByEmail(customer.getEmail())
+                .filter(existing -> existing.getPasswordHash() != null)
+                .ifPresent(existing -> {
+                    throw new EmailAlreadyExistsException("Email already exists");
+                });
+
         String hashedPassword =
                 passwordEncoder.encode(customer.getPasswordHash());
 

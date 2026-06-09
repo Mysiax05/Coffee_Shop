@@ -119,7 +119,7 @@ export default function AccountPage() {
                   onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })} />
               </div>
               <div className="field">
-                <label>Hasło <span className="muted">(puste dla kont bez hasła)</span></label>
+                <label>Hasło <span className="muted"></span></label>
                 <input className="input" type="password" value={loginForm.password}
                   onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })} />
               </div>

@@ -1,5 +1,6 @@
 package com.dbproject.backend.config;
 
+import com.dbproject.backend.exception.EmailAlreadyExistsException;
 import com.dbproject.backend.exception.ResourceNotFoundException;
 import com.dbproject.backend.exception.UnauthorizedException;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -25,6 +26,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(UnauthorizedException.class)
     public ResponseEntity<Map<String, String>> handleUnauthorized(UnauthorizedException ex) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(Map.of("error", ex.getMessage()));
+    }
+
+
+    @ExceptionHandler(EmailAlreadyExistsException.class)
+    public ResponseEntity<Map<String, String>> handleEmailExists(EmailAlreadyExistsException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(Map.of("error", ex.getMessage()));
     }
 
