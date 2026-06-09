@@ -68,7 +68,7 @@ BEGIN
         FROM products p
         INNER JOIN orderdetails od ON od.productid = p.productid
         INNER JOIN orders o ON o.orderid = od.orderid
-        WHERE o.status IN ('pending', 'delivered', 'canceled', 'packed')
+        WHERE o.status IN ('packed', 'delivered')
         AND (f_category_id is null or p.categoryid in (
             SELECT sub.categoryid FROM f_get_category_subtree(f_category_id) as sub))
         GROUP BY p.productid, p.name
@@ -95,7 +95,7 @@ BEGIN
     )
     LEFT JOIN orderdetails od ON od.productid = p.productid
     LEFT JOIN orders o ON o.orderid = od.orderid
-    WHERE (o.status IN ('pending', 'delivered', 'canceled', 'packed')
+    WHERE (o.status IN ('packed', 'delivered')
     OR o.status IS NULL)
     GROUP BY c.categoryid, c.categoryname
     ORDER BY c.categoryid;

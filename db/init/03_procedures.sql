@@ -165,7 +165,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-create procedure p_update_stock(
+create or replace procedure p_update_stock(
     in f_product_id integer,
     in quantity integer
 )
@@ -404,14 +404,6 @@ begin
     update customers
     set phone = p_newphone
     where customerid = p_customerid;
-end;
-$$ language plpgsql;
-
-create or replace procedure p_check_address_belongs_to_customer(p_addressid int, p_customerid int) as $$
-begin
-    if not exists (select 1 from addresses where customerid = p_customerid) then
-        raise exception 'Address with ID % does not belong to Customer with ID %', p_addressid,p_customerid;
-    end if;
 end;
 $$ language plpgsql;
 
