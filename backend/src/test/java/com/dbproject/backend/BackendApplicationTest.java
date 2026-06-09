@@ -31,26 +31,6 @@ class BackendApplicationTest {
 
     @Test
     void testTablesExist() throws SQLException {
-//        try (Connection connection = dataSource.getConnection()) {
-//            DatabaseMetaData metaData = connection.getMetaData();
-//
-//            String[] expectedTables = new String[]{
-//                    "categories",
-//                    "products",
-//                    "customers",
-//                    "addresses",
-//                    "orders",
-//                    "orderdetails",
-//                    "paymentmethods",
-//                    "payments",
-//            };
-//
-//            for (String tableName : expectedTables) {
-//                ResultSet rs = metaData.getTables(null, "public", tableName, new String[]{"TABLE"});
-//                assertTrue(rs.next(), "Table '" + tableName + "' is missing");
-//            }
-//        }
-
 
         try (Connection connection = dataSource.getConnection()) {
             String[] expectedTables = new String[]{
