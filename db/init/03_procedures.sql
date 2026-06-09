@@ -165,7 +165,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-create procedure p_update_stock(
+create or replace procedure p_update_stock(
     in f_product_id integer,
     in quantity integer
 )
@@ -347,7 +347,7 @@ declare
 begin
     call p_check_address_exists(p_addressid);
     call p_check_customer_exists(p_customerid);
-    call p_check_address_belongs_to_customer(p_adderssid, p_customerid);
+    call p_check_address_belongs_to_customer(p_addressid, p_customerid);
 
     select isdefault into v_was_default
     from addresses where addressid = p_addressid;
@@ -404,14 +404,6 @@ begin
     update customers
     set phone = p_newphone
     where customerid = p_customerid;
-end;
-$$ language plpgsql;
-
-create or replace procedure p_check_address_belongs_to_customer(p_addressid int, p_customerid int) as $$
-begin
-    if not exists (select 1 from addresses where customerid = p_customerid) then
-        raise exception 'Address with ID % does not belong to Customer with ID %', p_addressid,p_customerid;
-    end if;
 end;
 $$ language plpgsql;
 
@@ -475,7 +467,12 @@ begin
 		raise exception 'Invalid status: %', p_newstatus;
 	end if;
     update orders
-    set status = p_newstatus
+    set status = p_newstatus,
+		shipdate = case
+			when status = 'packed' and p_newstatus = 'delivered' and shipdate is null
+			then now()
+			else shipdate
+		end
     where orderid = p_orderid;
 end;
 $$ language plpgsql;

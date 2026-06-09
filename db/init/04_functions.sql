@@ -68,7 +68,7 @@ BEGIN
         FROM products p
         INNER JOIN orderdetails od ON od.productid = p.productid
         INNER JOIN orders o ON o.orderid = od.orderid
-        WHERE o.status IN ('pending', 'delivered', 'canceled', 'packed')
+        WHERE o.status IN ('packed', 'delivered')
         AND (f_category_id is null or p.categoryid in (
             SELECT sub.categoryid FROM f_get_category_subtree(f_category_id) as sub))
         GROUP BY p.productid, p.name
@@ -95,7 +95,7 @@ BEGIN
     )
     LEFT JOIN orderdetails od ON od.productid = p.productid
     LEFT JOIN orders o ON o.orderid = od.orderid
-    WHERE (o.status IN ('pending', 'delivered', 'canceled', 'packed')
+    WHERE (o.status IN ('packed', 'delivered')
     OR o.status IS NULL)
     GROUP BY c.categoryid, c.categoryname
     ORDER BY c.categoryid;
@@ -226,7 +226,7 @@ create or replace function t_f_validate_order_status_transition()
 returns trigger as $$
     begin
         if old.status = new.status then
-            return new;
+            raise exception 'Order is already %', old.status;
         end if;
         if (old.status='cancelled') or
            (old.status='delivered') or
@@ -239,12 +239,30 @@ returns trigger as $$
     end;
     $$ language plpgsql;
 
+
 create or replace function t_f_validate_address_active()
 returns trigger as $$
     begin
+        if TG_OP = 'UPDATE' and new.addressid is not distinct from old.addressid then
+            return new;
+        end if;
         if not exists(select 1 from vw_active_addresses where new.addressid=addressid) then
             raise exception 'Address with ID % is not active', new.addressid;
         end if;
         return new;
+    end;
+    $$ language plpgsql;
+	
+create or replace function f_get_customer_payments(f_customerid integer) returns setof payments
+as $$
+    begin
+    call p_check_customer_exists(f_customerid);
+
+    return query
+        select p.*
+        from payments p
+        inner join orders o on o.orderid = p.orderid
+        and o.customerid = f_customerid;
+
     end;
     $$ language plpgsql;
