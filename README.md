@@ -1,300 +1,217 @@
-# Sklep internetowy z kawą — dokumentacja techniczna
+<h1 align="center">☕ Coffee Shop</h1>
 
-**Autorzy:** Hubert Myszka, Michał Nowak
+<p align="center">
+  A full-stack e-commerce store for coffee, grinders and espresso machines —
+  built around a <strong>database-first</strong> PostgreSQL backend.
+</p>
 
-Projekt jest sklepem internetowym z kawą, akcesoriami i ekspresami. Całość zbudowana jest wokół relacyjnej bazy danych PostgreSQL, w której logika biznesowa (walidacje, transakcje, raporty) jest zrealizowana po stronie bazy — w postaci procedur składowanych, funkcji, widoków i wyzwalaczy. Warstwa aplikacyjna (Spring Boot) pełni rolę cienkiego pośrednika, który wywołuje te obiekty bazodanowe i wystawia je jako REST API, a frontend (React) konsumuje to API.
+<p align="center">
+  <img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-16-336791?logo=postgresql&logoColor=white">
+  <img alt="Java" src="https://img.shields.io/badge/Java-25-orange?logo=openjdk&logoColor=white">
+  <img alt="Spring Boot" src="https://img.shields.io/badge/Spring%20Boot-4.0-6DB33F?logo=springboot&logoColor=white">
+  <img alt="React" src="https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black">
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-6-3178C6?logo=typescript&logoColor=white">
+  <img alt="Docker" src="https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white">
+</p>
 
----
+<p align="center">
+  <strong>Authors:</strong> Hubert Myszka · Michał Nowak
+</p>
 
-## 1. Wykorzystywane technologie
-
-| Warstwa                  | Technologia                 | Wersja / uwagi                          |
-| ------------------------ | --------------------------- | --------------------------------------- |
-| Baza danych              | **PostgreSQL**              | 16 (obraz `postgres:16` w Dockerze)     |
-| Język logiki bazodanowej | **PL/pgSQL**                | procedury, funkcje, wyzwalacze          |
-| Backend                  | **Java**                    | 25                                      |
-| Framework backendu       | **Spring Boot**             | 4.0.x (Spring Web MVC, Spring Data JPA) |
-| ORM                      | **Hibernate / JPA**         | dostęp do bazy, mapowanie encji         |
-| Bezpieczeństwo haseł     | **Spring Security Crypto**  | hashowanie haseł (BCrypt)               |
-| Redukcja boilerplate     | **Lombok**                  | gettery/settery/buildery                |
-| Build backendu           | **Maven**                   | (wrapper `mvnw`)                        |
-| Frontend                 | **React**                   | 19 + **TypeScript**                     |
-| Build/dev frontendu      | **Vite**                    | 8                                       |
-| Routing frontendu        | **React Router**            | 7                                       |
-| Konteneryzacja bazy      | **Docker / Docker Compose** |                                         |
-| Testy API                | **Postman**                 | kolekcja `Postman_Collection.json`      |
-
-### Kluczowa decyzja architektoniczna — logika w bazie
-
-Świadomie przyjęliśmy podejście **„database-first"**: reguły biznesowe i integralność danych są egzekwowane w bazie, a nie w aplikacji. Backend praktycznie nie zawiera logiki — w większości przypadków metoda repozytorium to po prostu wywołanie procedury lub funkcji przez natywne zapytanie SQL.
-
-Zalety, które chcieliśmy uzyskać:
-
-- **Spójność niezależnie od klienta** — te same reguły obowiązują, czy operacja przyjdzie z REST API, z konsoli `psql`, czy z testu. Nie da się ich obejść przez inną ścieżkę dostępu.
-- **Atomowość** — operacje wieloetapowe (np. opłacenie zamówienia) wykonują się w jednej transakcji bazodanowej.
-- **Wydajność** — walidacje i agregacje dzieją się tam, gdzie są dane, bez przesyłania ich do aplikacji.
-
-Hibernate jest tu skonfigurowany w trybie `spring.jpa.hibernate.ddl-auto=validate` — ORM **nie** generuje schematu. Schemat tworzą skrypty SQL, a Hibernate jedynie weryfikuje, że encje Javy zgadzają się z istniejącymi tabelami.
+> 📚 **About this project**
+> This application grew out of a university **Databases** course. The `main` branch holds the
+> complete coffee-shop app described below. On the **`lab-x`** branches you'll find our solutions
+> to the individual problems set by the instructor, each exploring a different database engine and
+> a different set of techniques.
 
 ---
 
-## 2. Model / schemat bazy danych
+## Overview
 
-Schemat opisuje typową domenę e-commerce: katalog produktów z hierarchią kategorii, klientów z adresami, zamówienia ze szczegółami pozycji oraz płatności. Pełny diagram ER znajduje się w `db/erd/Entity-Relationship Diagram.pdf`, a jego źródło (dbdiagram.io) w `db/erd/`.
+Coffee Shop is a working online store: customers browse a catalogue, filter products by price,
+category and attributes, manage delivery addresses, place orders, pay for them and track their
+history. What makes it interesting isn't the storefront — it's **where the logic lives**.
 
-### Tabele
+Almost all business rules, validation, transactions and reporting are implemented **inside the
+database** as PL/pgSQL procedures, functions, views and triggers. The Spring Boot backend is a thin
+layer that calls these objects and exposes them over a REST API; the React frontend consumes it.
 
-- **Categories** — kategorie produktów. Kolumna `ParentCategoryID` jest kluczem obcym wskazującym na tę samą tabelę (`Categories_fk1`), co daje **samoodwołującą się hierarchię** (drzewo kategorii). Np. „Kawa" → „Kawa ziarnista".
-- **Products** — produkty. `CategoryID` → `Categories`. Cena `decimal(10,2)`, stan magazynowy `Stock`, flaga `IsActive` (miękkie usuwanie) oraz kolumna **`Attributes` typu `jsonb`** na atrybuty zależne od kategorii (np. waga i stopień palenia dla kawy, ciśnienie i średnica kolby dla ekspresu).
-- **Customers** — klienci. `Email` z ograniczeniem `UNIQUE`, opcjonalny `PasswordHash` (konta założone z danych seedowych mogą nie mieć hasła).
-- **Addresses** — adresy klienta. `CustomerID` → `Customers`. Flagi `IsActive` (miękkie usuwanie) i `IsDefault` (jeden adres domyślny na klienta).
-- **Orders** — zamówienia. `CustomerID` → `Customers`, `AddressID` → `Addresses`. `Status` przyjmuje wartości `pending` / `packed` / `delivered` / `cancelled`.
-- **OrderDetails** — pozycje zamówienia, tabela łącząca M:N między `Orders` a `Products`. **Klucz główny złożony** `(OrderID, ProductID)`. Przechowuje `UnitPrice` z chwili zakupu (cena historyczna, niezależna od późniejszych zmian ceny produktu) oraz `Quantity`.
-- **PaymentMethods** — metody płatności (BLIK, Visa, PayPal…), z flagą `IsActive`.
-- **Payments** — płatności. `OrderID` → `Orders`, `PaymentMethodID` → `PaymentMethods`. `Status`, `CreatedAt`, `PaidAt`.
+### Why database-first?
 
-### Relacje w skrócie
+| Benefit                             | How we get it                                                                                                                                   |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Consistency across every client** | The same rules apply whether a request comes from the REST API, a `psql` console or a test — they can't be bypassed by taking a different path. |
+| **Atomicity**                       | Multi-step operations (e.g. paying for an order) run inside a single database transaction.                                                      |
+| **Performance**                     | Validation and aggregation happen next to the data, with no round-trips to the application.                                                     |
 
-```
-Categories ──┐ (self-ref: ParentCategoryID)
-             └──< Products ──< OrderDetails >── Orders >── Customers
-                                                  │           │
-                                                  │           └──< Addresses
-                                                  └──< Payments >── PaymentMethods
-```
-
-### Zastosowane techniki modelowania
-
-- **Hierarchia rekurencyjna** — drzewo kategorii zbudowane jako tabela odwołująca się do siebie; przechodzone rekurencyjnym CTE (sekcja 3).
-- **`jsonb` zamiast EAV** — atrybuty produktów są nieregularne (każda kategoria ma inny zestaw), więc zamiast modelu Entity-Attribute-Value używamy kolumny `jsonb`. Pozwala to filtrować po atrybutach operatorem zawierania `@>` i indeksować je w razie potrzeby (GIN).
-- **Miękkie usuwanie (`IsActive`)** — produktów, adresów i metod płatności nie kasujemy fizycznie (psułoby to historyczne zamówienia), tylko dezaktywujemy. Widoki `vw_active_*` udostępniają tylko aktywne rekordy.
-- **Ceny historyczne** — `OrderDetails.UnitPrice` zamraża cenę z momentu złożenia zamówienia.
-- **`GENERATED ALWAYS AS IDENTITY`** — nowoczesny, zgodny ze standardem SQL sposób generowania kluczy głównych (zamiast `SERIAL`).
+Hibernate runs in `ddl-auto=validate` mode — the ORM **never** generates the schema. SQL scripts own
+the schema; Hibernate only checks that the Java entities still match the real tables.
 
 ---
 
-## 3. Realizacja operacji w bazie danych
+## ✨ Highlights
 
-Plik schematu i wszystkie obiekty bazodanowe są ładowane automatycznie przy starcie kontenera z katalogu `db/init/` (montowanego do `docker-entrypoint-initdb.d`), w kolejności:
+A few details we're proud of:
 
-| Plik                | Zawartość                    |
-| ------------------- | ---------------------------- |
-| `01_schema.sql`     | tabele, klucze główne i obce |
-| `02_views.sql`      | widoki                       |
-| `03_procedures.sql` | procedury składowane         |
-| `04_functions.sql`  | funkcje                      |
-| `05_triggers.sql`   | wyzwalacze                   |
-| `06_data.sql`       | dane przykładowe (seed)      |
+- 🔒 **No overselling, ever.** Paying for the last unit in stock under concurrent requests is handled
+  with row-level `SELECT … FOR UPDATE` locks. A dedicated concurrency test fires two parallel
+  payments at the last item and asserts exactly one succeeds. _(see [Transactions & concurrency](#-transactions--concurrency))_
+- 🌳 **Recursive category tree.** Categories are self-referencing and traversed with a
+  `WITH RECURSIVE` CTE, so filtering by a parent category transparently includes every descendant.
+- 🧩 **Schemaless product attributes.** Each category needs different fields (roast level for coffee,
+  pressure for espresso machines), so attributes live in a `jsonb` column and are queried with the
+  `@>` containment operator — flexibility without an EAV mess.
+- 🔄 **Order state machine in a trigger.** Status transitions (`pending → packed → delivered`,
+  cancellations, etc.) are validated by a trigger that rejects illegal moves.
+- ♻️ **Self-healing stock.** Cancelling a packed order automatically restores the reserved stock via
+  an `AFTER UPDATE` trigger — no application code involved.
+- 🗂️ **Soft deletes + views.** Products, addresses and payment methods are deactivated, never deleted,
+  so historical orders stay intact. `vw_active_*` views hide the inactive rows from the rest of the code.
+- 💸 **Historical prices.** `OrderDetails.UnitPrice` freezes the price at purchase time, immune to
+  later price changes.
+- 🛡️ **Guard procedures.** Reusable `p_check_*` procedures are the single source of truth for each
+  invariant, called from the bigger operations instead of being copy-pasted around.
 
-Poniżej przegląd wykorzystanych mechanizmów PostgreSQL wraz z komentarzem.
+---
 
-### 3.0 Trzy wymagane kategorie operacji
+## 🗄️ Database schema
 
-Projekt realizuje wszystkie trzy typy operacji wymagane w specyfikacji:
+<p align="center">
+  <img alt="Entity-Relationship diagram" src="db/erd/schema.png" width="100%">
+</p>
 
-| Kategoria                                                               | Przykładowe operacje w projekcie                                                                                                                                                                                                  | Realizacja                                                                                               |
-| ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| **Proste operacje CRUD**                                                | dodanie/zmiana/dezaktywacja produktu, zmiana ceny i stanu, dodanie/usunięcie adresu, rejestracja i edycja klienta, odczyt produktów, kategorii, zamówień, płatności                                                               | procedury `p_add_*`, `p_set_*`, `p_deactivate_*`, `p_change_*`; odczyty przez widoki i funkcje `f_get_*` |
-| **Złożone operacje transakcyjne** (kontrola zasobów i współbieżności)   | **opłacenie zamówienia** (`p_pay_order`) — zdjęcie stanu magazynowego „limitowanego" zasobu, zmiana statusu i utworzenie płatności atomowo; **złożenie zamówienia** (`p_create_order`); **anulowanie ze zwrotem stanu** (trigger) | procedury PL/pgSQL + blokady `FOR UPDATE` + wyzwalacze — szczegóły w sekcji 3.8                          |
-| **Operacje raportujące** (złożone zapytania, łączenie tabel, agregacja) | bestsellery (`f_report_best_sellers`), przychód wg kategorii (`f_report_revenue_by_category`), suma wydatków klienta (`f_get_customer_expenses`)                                                                                  | funkcje z `JOIN`, `GROUP BY`, `SUM`, rekurencyjnym CTE i `LEFT JOIN`                                     |
+The full ER diagram (PDF) and its dbdiagram.io source live in [`db/erd/`](db/erd).
 
-### 3.1 Widoki
+---
 
-Trzy widoki (`vw_active_products`, `vw_active_paymentmethods`, `vw_active_addresses`) hermetyzują filtr `IsActive = true`. Dzięki temu reszta kodu (procedury, repozytoria) nie powtarza tego warunku i nie ryzykuje przypadkowego pokazania zdezaktywowanego rekordu.
+## ⚙️ How the database works
 
-### 3.2 Procedury składowane (`CALL`)
+All database objects are loaded automatically on container start from [`db/init/`](db/init), in order:
 
-Procedury realizują operacje **modyfikujące stan** i obejmują walidacje + zmianę danych w jednej transakcji. Wydzieliliśmy zbiór małych procedur-strażników (`p_check_*`), które rzucają wyjątek, gdy warunek nie jest spełniony, i są wywoływane z procedur głównych — to ponowne użycie kodu walidacyjnego zamiast kopiowania go w każdym miejscu:
+| File                | Contents                       |
+| ------------------- | ------------------------------ |
+| `01_schema.sql`     | tables, primary & foreign keys |
+| `02_views.sql`      | active-row views               |
+| `03_procedures.sql` | stored procedures (writes)     |
+| `04_functions.sql`  | functions (reads & reports)    |
+| `05_triggers.sql`   | triggers (invariants)          |
+| `06_data.sql`       | seed data                      |
 
-```sql
-CREATE OR REPLACE PROCEDURE p_check_address_belongs_to_customer(p_addressid int, p_customerid int) AS $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM addresses
-                   WHERE addressid = p_addressid AND customerid = p_customerid) THEN
-        RAISE EXCEPTION 'Address with ID % does not belong to Customer with ID %', p_addressid, p_customerid;
-    END IF;
-END;
-$$ LANGUAGE plpgsql;
-```
+The project deliberately exercises three classes of operation:
 
-Najważniejsze procedury operacyjne:
+**Simple CRUD** — adding/updating/deactivating products, editing price and stock, managing
+addresses, registering and updating customers, reading catalogue, orders and payments. Implemented as
+`p_add_*` / `p_set_*` / `p_deactivate_*` procedures and `f_get_*` functions + views.
 
-- **`p_create_order(customerid, addressid, items jsonb)`** — tworzy zamówienie. Przyjmuje pozycje jako tablicę **JSON**, którą rozwija `jsonb_array_elements`, i dla każdej pozycji sprawdza istnienie i aktywność produktu, po czym wstawia wiersz do `orderdetails` z ceną pobraną z `products`. Przekazywanie listy pozycji jako jednego argumentu `jsonb` pozwala utworzyć całe zamówienie jednym `CALL`.
-- **`p_pay_order(customerid, orderid, paymentmethodid)`** — opłaca zamówienie. To najbardziej złożona operacja: waliduje własność i status zamówienia, **blokuje wiersze pozycji (`FOR UPDATE`)**, zdejmuje stan magazynowy każdego produktu (przez `p_update_stock`), zmienia status na `packed` i wstawia rekord płatności z obliczoną kwotą. Wszystko atomowo — albo całość się powiedzie, albo nic.
-- **`p_update_stock(productid, quantity)`** — zmienia stan magazynowy z blokadą `SELECT … FOR UPDATE` i kontrolą, że stan nie zejdzie poniżej zera (`RAISE EXCEPTION 'Stock cannot be negative'`).
-- **`p_register_customer(...)`** — rejestracja z `INSERT … ON CONFLICT (email) DO UPDATE` (upsert), pozwalająca „dokończyć" konto seedowe bez hasła, ale blokująca nadpisanie konta z hasłem.
-- **`p_add_address`, `p_set_default_address`, `p_deactivate_address`** — zarządzanie adresami z utrzymaniem niezmiennika „dokładnie jeden adres domyślny": dezaktywacja adresu domyślnego automatycznie przenosi flagę na inny aktywny adres.
-- **`p_change_order_status(orderid, newstatus)`** — zmiana statusu z walidacją dozwolonej wartości i automatycznym ustawieniem `ShipDate` przy przejściu do `delivered`.
+**Complex transactional operations** — `p_create_order` builds a whole order from a `jsonb` array of
+items in one call; `p_pay_order` validates the order, decrements stock for every item under a row
+lock, flips the status and inserts the payment **atomically**; a trigger restores stock when a packed
+order is cancelled.
 
-### 3.3 Funkcje
+**Reporting** — `f_report_best_sellers` and `f_report_revenue_by_category` aggregate sales with
+`JOIN`, `GROUP BY`, `SUM`, recursive CTEs and `LEFT JOIN`; `f_get_customer_expenses` totals a
+customer's completed payments.
 
-Funkcje realizują operacje **odczytu / raportowania** i zwracają zbiory wierszy (`RETURNS TABLE` / `RETURNS SETOF`).
+### 🔐 Transactions & concurrency
 
-- **`f_get_category_subtree(category_id)`** — zwraca identyfikatory danej kategorii i wszystkich jej podkategorii za pomocą **rekurencyjnego CTE (`WITH RECURSIVE`)**. To serce obsługi hierarchii — używane przez filtrowanie i raporty, by „kategoria nadrzędna" obejmowała wszystkie potomne.
+The heart of the project is controlling access to a _limited resource_ — product stock.
 
-```sql
-WITH RECURSIVE category_tree AS (
-    SELECT c.categoryid FROM categories c WHERE c.categoryid = f_category_id
-    UNION ALL
-    SELECT c.categoryid FROM categories c
-    INNER JOIN category_tree ct ON c.parentcategoryid = ct.categoryid
-)
-SELECT ct.categoryid FROM category_tree ct;
-```
-
-- **`f_filter_products(min_price, max_price, category_id, attributes_filter jsonb)`** — wyszukiwarka produktów. Każdy argument jest opcjonalny (wzorzec `(param IS NULL OR warunek)`), filtruje po przedziale cenowym, po poddrzewie kategorii oraz **po atrybutach `jsonb` operatorem zawierania `@>`**.
-- **`f_report_best_sellers(limit, category_id)`** — raport bestsellerów: agreguje sprzedane sztuki i przychód (`SUM`, `GROUP BY`), liczy tylko zamówienia opłacone/dostarczone, opcjonalnie zawęża do poddrzewa kategorii.
-- **`f_report_revenue_by_category()`** — przychód w rozbiciu na kategorie, z `LEFT JOIN`, by pokazać też kategorie bez sprzedaży (przychód 0).
-- Funkcje pomocnicze klienta: `f_get_customer_expenses`, `f_get_customer_orders`, `f_get_customer_addresses`, `f_get_customer_payments`, `f_get_order_total`, `f_get_order_products`.
-
-### 3.4 Wyzwalacze (triggery)
-
-Wyzwalacze pilnują niezmienników, których nie da się wyrazić prostym ograniczeniem `CHECK` — wymagają zajrzenia do innych wierszy/tabel:
-
-- **`t_validate_leaf_category`** (BEFORE INSERT/UPDATE na `products`) — produkt można przypisać tylko do kategorii-liścia (nieposiadającej podkategorii).
-- **`t_validate_product_active`** (BEFORE INSERT na `orderdetails`) — nie można dodać do zamówienia nieaktywnego produktu.
-- **`t_validate_payment_method_active`** (BEFORE INSERT na `payments`) — płatność tylko aktywną metodą.
-- **`trg_validate_address_active`** (BEFORE INSERT/UPDATE na `orders`) — zamówienie tylko na aktywny adres.
-- **`trg_validate_order_status_transition`** (BEFORE UPDATE na `orders`) — **maszyna stanów** zamówienia: dopuszcza tylko sensowne przejścia statusu (np. blokuje `delivered` → `pending` czy zmianę statusu zamówienia anulowanego).
-- **`trg_restore_stock_on_cancel`** (AFTER UPDATE na `orders`) — przy anulowaniu zamówienia spakowanego (`packed` → `cancelled`) **automatycznie zwraca zdjęty stan magazynowy**.
-
-### 3.5 Demonstracja możliwości i dyskusja zastosowanych technik
-
-Projekt celowo pokazuje szeroki wachlarz mechanizmów PostgreSQL:
-
-- **Typ `jsonb` i operator `@>`** — elastyczne, indeksowalne atrybuty produktów bez rozdmuchiwania schematu; zamówienia przyjmowane jako JSON i parsowane w bazie.
-- **Rekurencyjne CTE** — przechodzenie drzewa kategorii niezależnie od głębokości.
-- **Współbieżność i blokady (`FOR UPDATE`)** — w `p_update_stock` i `p_pay_order` blokujemy wiersze produktów, by dwie równoległe płatności nie sprzedały tej samej, ostatniej sztuki. Poprawność tego rozwiązania jest pokryta testem współbieżnościowym (sekcja 5).
-- **Procedury vs funkcje** — świadomy podział: procedury (`CALL`, mogą zarządzać transakcją, modyfikują stan) do zapisu, funkcje (`SELECT`, zwracają zbiory) do odczytu.
-- **Strażnicy `p_check_*`** — walidacja jako zestaw małych, wielokrotnie używanych procedur; pojedyncze źródło prawdy dla każdej reguły.
-- **Sygnalizowanie błędów przez `RAISE EXCEPTION`** — naruszenie reguły zwraca czytelny komunikat, który backend mapuje na odpowiedź HTTP.
-- **Miękkie usuwanie + widoki** — historia pozostaje nienaruszona, a kod aplikacyjny widzi tylko aktywne rekordy.
-
-### 3.6 Sposób wywołania z aplikacji
-
-Backend nie duplikuje tej logiki — repozytoria Spring Data wywołują obiekty bazodanowe natywnym SQL. Przykłady:
-
-```java
-// procedura modyfikująca — OrderRepository
-@Modifying @Transactional
-@Query(value = "CALL p_create_order(:customerId, :addressId, CAST(:items AS jsonb))", nativeQuery = true)
-void createOrder(@Param("customerId") Integer customerId,
-                 @Param("addressId") Integer addressId,
-                 @Param("items") String items);
-
-// funkcja zwracająca tabelę — ProductRepository
-@Query(value = "SELECT * FROM f_report_best_sellers(:limit, :categoryId)", nativeQuery = true)
-List<Object[]> findBestSellers(@Param("limit") Integer limit, @Param("categoryId") Integer categoryId);
-
-// odczyt przez widok
-@Query(value = "SELECT * FROM vw_active_products", nativeQuery = true)
-List<Product> findAllActive();
-```
-
-Lista pozycji zamówienia jest w `OrderService` serializowana do JSON-a (Jackson) i przekazywana do `p_create_order` jako `jsonb`. Hasła są hashowane w warstwie aplikacji (`PasswordEncoder` / BCrypt) przed wywołaniem `p_register_customer`.
-
-### 3.7 Przetwarzanie transakcyjne, współbieżność i wydajność
-
-To jest centralny punkt projektu — sterowanie dostępem do „limitowanego" zasobu, jakim jest stan magazynowy produktu.
-
-**Transakcyjność.** Operacje wieloetapowe są zamknięte w pojedynczej transakcji. `p_pay_order` w jednym wywołaniu: waliduje zamówienie, dla każdej pozycji zdejmuje stan, zmienia status zamówienia i wstawia płatność. Jeśli którykolwiek krok rzuci wyjątek (np. brak stanu), **cała transakcja jest wycofywana** (`ROLLBACK`) — nie powstaje płatność za zamówienie, którego nie da się zrealizować, ani nie zostaje zdjęty częściowy stan. Po stronie aplikacji granicę transakcji wyznacza `@Transactional` na metodzie repozytorium.
-
-**Kontrola równoczesnego dostępu.** Scenariusz wyścigu: dwóch klientów jednocześnie płaci za ostatnią sztukę produktu. Bez ochrony oba odczyty zobaczyłyby `stock = 1` i oba zapisy zeszłyby do `0`/`-1` (nadsprzedaż). Rozwiązanie w `p_update_stock`:
+Picture two customers paying for the last unit at the same time. Without protection both reads see
+`stock = 1` and both writes drop it to `0`/`-1` — an oversell. The fix lives in `p_update_stock`:
 
 ```sql
 SELECT stock INTO v_stock
 FROM products
 WHERE productid = f_product_id
-FOR UPDATE;            -- blokada wiersza do końca transakcji
+FOR UPDATE;                       -- row lock held until the transaction ends
 
 IF v_stock + quantity < 0 THEN
     RAISE EXCEPTION 'Stock cannot be negative';
 END IF;
 ```
 
-Klauzula **`FOR UPDATE`** zakłada blokadę na poziomie pojedynczego wiersza produktu. Druga transakcja czeka, aż pierwsza się zakończy, a następnie widzi już zaktualizowany stan i jej kontrola `v_stock + quantity < 0` poprawnie ją odrzuca. Jest to blokada wierszowa (a nie tabeli), więc operacje na różnych produktach nie blokują się nawzajem. Poprawność tego mechanizmu potwierdza test `StockConcurrencyTest` (sekcja 5): z dwóch równoległych płatności dokładnie jedna kończy się sukcesem, druga otrzymuje `Stock cannot be negative`, a stan końcowy wynosi 0 — brak nadsprzedaży.
+`FOR UPDATE` takes a **row-level** lock on just that product. The second transaction waits for the
+first to commit, then sees the already-decremented stock and its own check correctly rejects it.
+Because the lock is per-row (not per-table), payments for _different_ products never block each
+other. If any step fails the whole transaction is rolled back — no orphaned payment, no half-applied
+stock. `StockConcurrencyTest` proves it: of two parallel payments for the last item, exactly one
+succeeds, the other gets `Stock cannot be negative`, and the final stock is `0`.
 
-**Wydajność.** Zastosowane techniki ograniczają koszt operacji:
+### Calling it from the app
 
-- **Logika wykonywana przy danych** — walidacje, agregacje i pętle dzieją się w bazie; pojedyncze zamówienie powstaje jednym `CALL` zamiast wieloma round-tripami aplikacja↔baza.
-- **Blokady wierszowe zamiast tabelowych** (`FOR UPDATE`) — minimalna sekcja krytyczna, wysoka współbieżność dla różnych produktów.
-- **Operacje zbiorowe** — raporty liczą się jednym zapytaniem z `GROUP BY`/`JOIN`, bez pobierania surowych wierszy do aplikacji.
-- **Indeksy** — klucze główne i `UNIQUE (Email)` są automatycznie indeksowane; klucze obce wspierają złączenia. Kolumnę `Attributes (jsonb)` można w razie potrzeby objąć indeksem **GIN**, by przyspieszyć filtrowanie operatorem `@>`.
+The backend doesn't duplicate any of this — Spring Data repositories call the database objects with
+native SQL:
 
-### 3.8 REST API (wystawienie operacji)
+```java
+// state-changing procedure
+@Modifying @Transactional
+@Query(value = "CALL p_create_order(:customerId, :addressId, CAST(:items AS jsonb))", nativeQuery = true)
+void createOrder(@Param("customerId") Integer customerId,
+                 @Param("addressId") Integer addressId,
+                 @Param("items") String items);
 
-Operacje bazodanowe są udostępniane jako REST. Najważniejsze endpointy:
-
-| Metoda     | Ścieżka                                                      | Operacja                                        |
-| ---------- | ------------------------------------------------------------ | ----------------------------------------------- |
-| `POST`     | `/api/auth/login`, `/logout`, `GET /me`                      | logowanie / sesja                               |
-| `POST`     | `/api/customers`                                             | rejestracja klienta                             |
-| `GET`      | `/api/products`                                              | aktywne produkty                                |
-| `POST`     | `/api/products/filter`                                       | filtrowanie (cena, kategoria, atrybuty `jsonb`) |
-| `PATCH`    | `/api/products/{id}/deactivate`, `/updatePrice`, `/addStock` | zarządzanie produktem                           |
-| `GET`      | `/api/categories`, `/api/categories/{id}`                    | kategorie                                       |
-| `POST/GET` | `/api/addresses`                                             | adresy klienta                                  |
-| `POST`     | `/api/orders`                                                | złożenie zamówienia                             |
-| `GET`      | `/api/orders`                                                | zamówienia klienta                              |
-| `POST`     | `/api/orders/{id}/pay`, `/cancel`, `/deliver`                | cykl życia zamówienia                           |
-| `GET`      | `/api/payments`, `/api/payments/total`                       | płatności i suma wydatków                       |
-| `GET`      | `/api/reports/best-sellers`, `/best-sellers/by-category`     | raporty                                         |
+// table-returning report function
+@Query(value = "SELECT * FROM f_report_best_sellers(:limit, :categoryId)", nativeQuery = true)
+List<Object[]> findBestSellers(@Param("limit") Integer limit, @Param("categoryId") Integer categoryId);
+```
 
 ---
 
-## 4. Struktura repozytorium
+## 🧱 Tech stack
+
+| Layer           | Technology                                                           |
+| --------------- | -------------------------------------------------------------------- |
+| Database        | PostgreSQL 16, PL/pgSQL                                              |
+| Backend         | Java 25, Spring Boot 4 (Web MVC, Spring Data JPA), Hibernate, Lombok |
+| Security        | Spring Security Crypto (BCrypt password hashing)                     |
+| Frontend        | React 19, TypeScript, Vite, React Router 7                           |
+| Infra & tooling | Docker Compose, Maven, Postman                                       |
+
+---
+
+## 📂 Project structure
 
 ```
 .
-├── docker-compose.yml            # kontener PostgreSQL 16
+├── docker-compose.yml          # PostgreSQL 16 container
 ├── db/
-│   ├── init/                     # skrypty ładowane przy starcie bazy (01–06)
-│   └── erd/                      # diagram ER (PDF + źródło dbdiagram.io)
-├── backend/                      # Spring Boot (Java 25, Maven)
+│   ├── init/                   # schema, views, procedures, functions, triggers, seed (01–06)
+│   └── erd/                    # ER diagram (PDF + dbdiagram.io source)
+├── backend/                    # Spring Boot (Java 25, Maven)
 │   └── src/main/java/.../backend
-│       ├── entity/               # encje JPA (mapowanie tabel)
-│       ├── repository/           # repozytoria — wywołania CALL / SELECT funkcji
-│       ├── service/              # cienka warstwa serwisowa
-│       ├── web/                  # kontrolery REST
-│       ├── dto/                  # obiekty transferowe
-│       └── config/               # konfiguracja (hasła, obsługa wyjątków)
-├── frontend/                     # React 19 + TypeScript + Vite
-└── Postman_Collection.json       # przykładowe żądania API
+│       ├── entity/             # JPA entities (table mappings)
+│       ├── repository/         # repositories — CALL / SELECT on DB objects
+│       ├── service/            # thin service layer
+│       ├── web/                # REST controllers
+│       ├── dto/                # transfer objects
+│       └── config/             # password & exception config
+├── frontend/                   # React 19 + TypeScript + Vite
+└── Postman_Collection.json     # sample API requests
 ```
 
 ---
 
-## 5. Testy
+## 🚀 Getting started
 
-W `backend/src/test` znajdują się testy integracyjne uruchamiane na realnej bazie:
-
-- **`BackendApplicationTest`** — sprawdza połączenie z bazą i obecność wszystkich tabel.
-- **`DatabaseOperationsTest`** — testuje logikę bazodanową: zdejmowanie stanu przy płatności, odrzucenie płatności przy niewystarczającym stanie, poprawność raportu bestsellerów (z pominięciem zamówień nieopłaconych), blokadę zamówienia na cudzy adres.
-- **`StockConcurrencyTest`** — **test współbieżności**: dwie równoległe płatności o ostatnią sztukę produktu; weryfikuje, że dokładnie jedna się powiedzie, druga dostanie `Stock cannot be negative`, a stan końcowy wyniesie 0 (brak nadsprzedaży dzięki `FOR UPDATE`).
-
-Uruchomienie: `cd backend && ./mvnw test` (wymaga działającej bazy).
-
----
-
-## 6. Instrukcja uruchomienia
-
-### Wymagania
+### Prerequisites
 
 - Docker + Docker Compose
 - JDK 25
-- Node.js (dla frontendu)
+- Node.js
 
-### 1. Baza danych
+### 1. Database
 
-W katalogu głównym projektu:
+From the project root:
 
 ```bash
 docker compose up -d
 ```
 
-Uruchamia PostgreSQL 16 na porcie **5432** (baza `shopdb`, użytkownik `shopuser`, hasło `shoppassword`) i automatycznie wykonuje wszystkie skrypty z `db/init/` (schemat, widoki, procedury, funkcje, triggery, dane przykładowe).
+This starts PostgreSQL 16 on port **5432** (db `shopdb`, user `shopuser`, password `shoppassword`)
+and automatically runs every script in `db/init/` (schema, views, procedures, functions, triggers,
+seed data).
 
-> Skrypty inicjalizacyjne wykonują się **tylko przy pierwszym** tworzeniu wolumenu. Aby przeładować bazę od zera:
+> Init scripts only run the **first** time the volume is created. To rebuild the database from scratch:
 >
 > ```bash
 > docker compose down -v && docker compose up -d
@@ -307,7 +224,9 @@ cd backend
 ./mvnw spring-boot:run        # Windows: mvnw.cmd spring-boot:run
 ```
 
-Backend startuje na **http://localhost:8080**. Dane połączenia są w `backend/src/main/resources/application.properties` (zgodne z `docker-compose.yml`). Hibernate działa w trybie `validate` — wymaga, by baza była już zainicjalizowana skryptami.
+The API starts on **http://localhost:8080**. Connection settings are in
+`backend/src/main/resources/application.properties` (matching `docker-compose.yml`). Hibernate runs in
+`validate` mode, so the database must already be initialised by the scripts.
 
 ### 3. Frontend
 
@@ -317,8 +236,26 @@ npm install
 npm run dev
 ```
 
-Aplikacja będzie dostępna pod adresem podanym przez Vite (domyślnie **http://localhost:5173**).
+The app is served at the URL Vite prints (default **http://localhost:5173**).
 
-### 4. Testowanie API
+### 4. Try the API
 
-Można zaimportować `Postman_Collection.json` do Postmana aby zweryfikować poprawność metod i funkcjonalności, które nie mają frontendu, ponieważ jest to czysta logika biznesowa nie związana z samym sklepem internetowym. Ustawić zmienną `baseUrl` na `http://localhost:8080`.
+Import `Postman_Collection.json` into Postman and set the `baseUrl` variable to
+`http://localhost:8080`.
+
+---
+
+## 🧪 Tests
+
+Integration tests in `backend/src/test` run against a real database:
+
+- **`BackendApplicationTest`** — verifies the connection and that every table exists.
+- **`DatabaseOperationsTest`** — stock decrement on payment, rejection on insufficient stock,
+  best-seller report correctness (ignoring unpaid orders), and blocking an order placed on someone
+  else's address.
+- **`StockConcurrencyTest`** — the concurrency test described above: two parallel payments for the
+  last unit, exactly one wins, no overselling.
+
+```bash
+cd backend && ./mvnw test     # requires a running database
+```
