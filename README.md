@@ -26,6 +26,10 @@
 
 ---
 
+<p align="center">
+  <img alt="projects preview picture" src="preview.png" width="100%">
+</p>
+
 ## Overview
 
 Coffee Shop is a working online store: customers browse a catalogue, filter products by price,
